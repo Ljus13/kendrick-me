@@ -1,5 +1,6 @@
 import { createSignal, Show } from "solid-js";
 import { supabase } from "../../lib/supabase";
+import Modal from "../ui/Modal";
 
 interface Props {
   label: string;
@@ -11,6 +12,7 @@ interface Props {
 export default function FileUploader(props: Props) {
   const [uploading, setUploading] = createSignal(false);
   const [preview, setPreview] = createSignal(props.currentUrl);
+  const [errorMsg, setErrorMsg] = createSignal("");
 
   async function handleFile(e: Event) {
     const input = e.currentTarget as HTMLInputElement;
@@ -38,7 +40,7 @@ export default function FileUploader(props: Props) {
       props.onUploaded(data.publicUrl);
       setPreview(data.publicUrl);
     } catch (err: any) {
-      alert("อัปโหลดไม่สำเร็จ: " + err.message);
+      setErrorMsg("อัปโหลดไม่สำเร็จ: " + err.message);
       setPreview(props.currentUrl); // revert
     } finally {
       setUploading(false);
@@ -83,6 +85,13 @@ export default function FileUploader(props: Props) {
           />
         </label>
       </div>
+      <Modal
+        show={!!errorMsg()}
+        title="เกิดข้อผิดพลาด"
+        message={errorMsg()}
+        type="alert"
+        onClose={() => setErrorMsg("")}
+      />
     </div>
   );
 }

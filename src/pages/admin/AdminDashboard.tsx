@@ -7,6 +7,8 @@ import type { Bean, GameRoom } from "../../types/database";
 import BeanTable from "../../components/admin/BeanTable";
 import BeanForm from "../../components/admin/BeanForm";
 import StatsOverview from "../../components/admin/StatsOverview";
+import Modal from "../../components/ui/Modal";
+import type { ModalConfig } from "../../components/ui/Modal";
 
 async function fetchBeans(): Promise<Bean[]> {
   const { data, error } = await supabase
@@ -33,6 +35,7 @@ export default function AdminDashboard() {
   const [editingBean, setEditingBean] = createSignal<Bean | null>(null);
   const [showForm, setShowForm] = createSignal(false);
   const [activeTab, setActiveTab] = createSignal<"beans" | "rooms">("beans");
+  const [modalState, setModalState] = createSignal<ModalConfig | null>(null);
 
   async function handleLogout() {
     await signOut();
@@ -49,23 +52,28 @@ export default function AdminDashboard() {
     setShowForm(true);
   }
 
-  async function handleDelete(bean: Bean) {
-    if (!confirm(`ลบ "${bean.flavor_th}" จริงหรือไม่?`)) return;
-
-    // Delete images from storage if they exist
-    const filesToDelete: string[] = [];
-    if (bean.img_hidden) filesToDelete.push(extractPath(bean.img_hidden));
-    if (bean.img_revealed) filesToDelete.push(extractPath(bean.img_revealed));
-    if (filesToDelete.length > 0) {
-      await supabase.storage.from("bean-images").remove(filesToDelete);
-    }
-
-    const { error } = await supabase.from("beans_master").delete().eq("id", bean.id);
-    if (error) {
-      alert("ลบไม่สำเร็จ: " + error.message);
-      return;
-    }
-    refetch();
+  function handleDelete(bean: Bean) {
+    setModalState({
+      title: "ลบรสชาติ",
+      message: `ลบ "${bean.flavor_th}" จริงหรือไม่?`,
+      type: "confirm",
+      variant: "danger",
+      confirmText: "ลบเลย",
+      onConfirm: async () => {
+        const filesToDelete: string[] = [];
+        if (bean.img_hidden) filesToDelete.push(extractPath(bean.img_hidden));
+        if (bean.img_revealed) filesToDelete.push(extractPath(bean.img_revealed));
+        if (filesToDelete.length > 0) {
+          await supabase.storage.from("bean-images").remove(filesToDelete);
+        }
+        const { error } = await supabase.from("beans_master").delete().eq("id", bean.id);
+        if (error) {
+          setModalState({ title: "เกิดข้อผิดพลาด", message: "ลบไม่สำเร็จ: " + error.message, type: "alert" });
+          return;
+        }
+        refetch();
+      }
+    });
   }
 
   function handleFormDone() {
@@ -76,34 +84,46 @@ export default function AdminDashboard() {
 
   // ── Room management ────────────────────────────────────────
 
-  async function handleDeleteRoom(room: GameRoom) {
+  function handleDeleteRoom(room: GameRoom) {
     const playerNames = room.players.map(p => p.name).join(", ") || "ไม่มีผู้เล่น";
-    if (!confirm(`ลบห้อง ${room.room_code} จริงหรือไม่?\nผู้เล่น: ${playerNames}\nสถานะ: ${room.status}`)) return;
-
-    // Delete game_board rows first (FK constraint)
-    await supabase.from("game_board").delete().eq("room_id", room.id);
-
-    const { error } = await supabase.from("game_rooms").delete().eq("id", room.id);
-    if (error) {
-      alert("ลบห้องไม่สำเร็จ: " + error.message);
-      return;
-    }
-    refetchRooms();
+    setModalState({
+      title: "ลบห้องเกม",
+      message: `ลบห้อง ${room.room_code} จริงหรือไม่?\nผู้เล่น: ${playerNames}\nสถานะ: ${roomStatusText(room.status)}`,
+      type: "confirm",
+      variant: "danger",
+      confirmText: "ลบเลย",
+      onConfirm: async () => {
+        await supabase.from("game_board").delete().eq("room_id", room.id);
+        const { error } = await supabase.from("game_rooms").delete().eq("id", room.id);
+        if (error) {
+          setModalState({ title: "เกิดข้อผิดพลาด", message: "ลบห้องไม่สำเร็จ: " + error.message, type: "alert" });
+          return;
+        }
+        refetchRooms();
+      }
+    });
   }
 
-  async function handleDeleteAllFinished() {
+  function handleDeleteAllFinished() {
     const finished = rooms()?.filter(r => r.status === "finished") ?? [];
     if (finished.length === 0) {
-      alert("ไม่มีห้องที่เกมจบแล้ว");
+      setModalState({ title: "ไม่มีห้องที่จบ", message: "ไม่มีห้องที่เกมจบแล้ว", type: "alert" });
       return;
     }
-    if (!confirm(`ลบห้องที่จบแล้วทั้งหมด ${finished.length} ห้อง?`)) return;
-
-    for (const r of finished) {
-      await supabase.from("game_board").delete().eq("room_id", r.id);
-      await supabase.from("game_rooms").delete().eq("id", r.id);
-    }
-    refetchRooms();
+    setModalState({
+      title: "ลบห้องที่จบแล้ว",
+      message: `ลบห้องที่จบแล้วทั้งหมด ${finished.length} ห้อง?`,
+      type: "confirm",
+      variant: "danger",
+      confirmText: "ลบทั้งหมด",
+      onConfirm: async () => {
+        for (const r of finished) {
+          await supabase.from("game_board").delete().eq("room_id", r.id);
+          await supabase.from("game_rooms").delete().eq("id", r.id);
+        }
+        refetchRooms();
+      }
+    });
   }
 
   function roomStatusBadge(status: string): string {
@@ -307,6 +327,18 @@ export default function AdminDashboard() {
           </Show>
         </Show>
       </main>
+
+      {/* Modal */}
+      <Modal
+        show={!!modalState()}
+        title={modalState()?.title ?? ""}
+        message={modalState()?.message ?? ""}
+        type={modalState()?.type}
+        variant={modalState()?.variant}
+        confirmText={modalState()?.confirmText}
+        onConfirm={modalState()?.onConfirm}
+        onClose={() => setModalState(null)}
+      />
     </div>
   );
 }
