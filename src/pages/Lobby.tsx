@@ -272,13 +272,21 @@ export default function Lobby() {
             </p>
           </Show>
 
-          {/* Leave room */}
-          <button
-            onClick={handleLeave}
-            class="w-full py-2 text-sm opacity-40 hover:opacity-70 hover:text-red-400 transition-all"
-          >
-            🚪 ออกจากห้อง
-          </button>
+          {/* Leave room & back to home */}
+          <div class="flex gap-2">
+            <button
+              onClick={handleLeave}
+              class="flex-1 py-2 text-sm opacity-40 hover:opacity-70 hover:text-red-400 transition-all"
+            >
+              🚪 ออกจากห้อง
+            </button>
+            <button
+              onClick={() => navigate("/", { replace: true })}
+              class="flex-1 py-2 text-sm opacity-40 hover:opacity-70 hover:text-amber-400 transition-all"
+            >
+              🏠 กลับหน้าแรก
+            </button>
+          </div>
         </div>
 
         {/* ── Tips ──────────────────────────────────── */}

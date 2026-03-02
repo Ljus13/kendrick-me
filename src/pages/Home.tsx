@@ -1,14 +1,79 @@
-import { createSignal, Show } from "solid-js";
+import { createSignal, Show, onMount } from "solid-js";
 import { useNavigate } from "@solidjs/router";
-import { nickname, setNickname, isReady } from "../stores/playerStore";
+import { nickname, setNickname, isReady, activeRoomCode, setActiveRoomCode, sessionId } from "../stores/playerStore";
 import { createRoom, joinRoom, error, loading } from "../stores/roomStore";
 import { isValidRoomCode, normalizeRoomCode } from "../lib/roomHelpers";
+import { supabase } from "../lib/supabase";
+import type { Player } from "../types/database";
 
 export default function Home() {
   const navigate = useNavigate();
   const [mode, setMode] = createSignal<"menu" | "create" | "join">("menu");
   const [roomCode, setRoomCode] = createSignal("");
   const [localError, setLocalError] = createSignal("");
+  const [pendingRejoin, setPendingRejoin] = createSignal<string>("");
+
+  // ── Check if player was in a room (browser crash recovery) ──
+  onMount(async () => {
+    const saved = activeRoomCode();
+    if (!saved || !isReady()) return;
+
+    // Verify room still exists and player is still in it
+    const { data } = await supabase
+      .from("game_rooms")
+      .select("*")
+      .eq("room_code", saved)
+      .single();
+
+    if (!data) {
+      // Room was deleted or doesn't exist
+      setActiveRoomCode("");
+      return;
+    }
+
+    const isInRoom = (data.players as Player[]).some(
+      (p: Player) => p.session_id === sessionId()
+    );
+
+    if (!isInRoom || data.status === "finished") {
+      setActiveRoomCode("");
+      return;
+    }
+
+    // Player still in an active room — show rejoin prompt
+    setPendingRejoin(saved);
+  });
+
+  function handleRejoin() {
+    const code = pendingRejoin();
+    setPendingRejoin("");
+    navigate(`/lobby/${code}`);
+  }
+
+  function handleDismissRejoin() {
+    // Leave the old room and clear
+    const code = pendingRejoin();
+    setPendingRejoin("");
+    setActiveRoomCode("");
+    // Fire & forget: remove player from old room via joinRoom store
+    (async () => {
+      const { data } = await supabase
+        .from("game_rooms")
+        .select("*")
+        .eq("room_code", code)
+        .single();
+      if (!data) return;
+      const updated = (data.players as Player[]).filter(
+        (p: Player) => p.session_id !== sessionId()
+      );
+      if (updated.length === 0) {
+        await supabase.from("game_board").delete().eq("room_id", data.id);
+        await supabase.from("game_rooms").delete().eq("id", data.id);
+      } else {
+        await supabase.from("game_rooms").update({ players: updated }).eq("id", data.id);
+      }
+    })();
+  }
 
   async function handleCreate() {
     if (!isReady()) {
@@ -84,6 +149,32 @@ export default function Home() {
         <Show when={localError() || error()}>
           <div class="px-4 py-2 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-sm">
             {localError() || error()}
+          </div>
+        </Show>
+
+        {/* ── Rejoin Banner (browser crash recovery) ── */}
+        <Show when={pendingRejoin()}>
+          <div class="px-4 py-3 rounded-xl bg-amber-500/10 border border-amber-500/30 space-y-2">
+            <p class="text-sm text-amber-400 font-medium">
+              🔄 คุณยังอยู่ในห้อง <span class="font-mono font-bold">{pendingRejoin()}</span>
+            </p>
+            <p class="text-xs opacity-60">ดูเหมือนว่าคุณออกไปโดยไม่ได้ตั้งใจ — กลับเข้าห้องเดิมได้เลย!</p>
+            <div class="flex gap-2">
+              <button
+                onClick={handleRejoin}
+                class="flex-1 py-2 rounded-lg bg-amber-600/80 hover:bg-amber-600 text-white 
+                       font-bold text-sm transition-all"
+              >
+                🚪 กลับเข้าห้องเดิม
+              </button>
+              <button
+                onClick={handleDismissRejoin}
+                class="flex-1 py-2 rounded-lg bg-[#151723] border border-[#b1a59a]/20
+                       text-sm hover:bg-[#1e2035] transition-all"
+              >
+                ❌ ออกจากห้อง
+              </button>
+            </div>
           </div>
         </Show>
 

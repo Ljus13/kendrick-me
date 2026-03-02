@@ -5,7 +5,7 @@
 import { createSignal } from "solid-js";
 import { createStore } from "solid-js/store";
 import { supabase } from "../lib/supabase";
-import { sessionId, nickname } from "./playerStore";
+import { sessionId, nickname, setActiveRoomCode } from "./playerStore";
 import {
   generateRoomCode,
   rollTurnOrder,
@@ -89,6 +89,7 @@ async function createRoom(): Promise<string | null> {
 
   setRoom(data as GameRoom);
   setPlayers(data.players as Player[]);
+  setActiveRoomCode(code);
   return code;
 }
 
@@ -120,8 +121,36 @@ async function joinRoom(rawCode: string): Promise<boolean> {
   if (existing) {
     setRoom(r);
     setPlayers(r.players);
+    setActiveRoomCode(code);
     setLoading(false);
     return true;
+  }
+
+  // New player: check if already in ANOTHER room (prevent multi-room)
+  const { data: otherRooms } = await supabase
+    .from("game_rooms")
+    .select("id, room_code, players, status")
+    .in("status", ["waiting", "playing"]);
+
+  if (otherRooms) {
+    const otherRoom = otherRooms.find(
+      (or: any) => or.room_code !== code && 
+        (or.players as Player[]).some((p: Player) => p.session_id === sessionId())
+    );
+    if (otherRoom) {
+      // Auto-leave the other room first
+      const otherPlayers = (otherRoom.players as Player[]).filter(
+        (p: Player) => p.session_id !== sessionId()
+      );
+      if (otherPlayers.length === 0) {
+        await supabase.from("game_board").delete().eq("room_id", otherRoom.id);
+        await supabase.from("game_rooms").delete().eq("id", otherRoom.id);
+      } else {
+        await supabase.from("game_rooms")
+          .update({ players: otherPlayers })
+          .eq("id", otherRoom.id);
+      }
+    }
   }
 
   // New player: only allow joining rooms still in 'waiting' status
@@ -164,6 +193,7 @@ async function joinRoom(rawCode: string): Promise<boolean> {
   r.players = updatedPlayers;
   setRoom(r);
   setPlayers(updatedPlayers);
+  setActiveRoomCode(code);
   setLoading(false);
   return true;
 }
@@ -373,6 +403,7 @@ async function leaveRoom() {
 
   if (updated.length === 0) {
     // Delete room if last player leaves
+    await supabase.from("game_board").delete().eq("room_id", r.id);
     await supabase.from("game_rooms").delete().eq("id", r.id);
   } else {
     await supabase
@@ -397,6 +428,7 @@ function cleanup() {
   setError("");
   setDiceResults(null);
   setConnectionStatus("connected");
+  setActiveRoomCode("");
 }
 
 // ── Exports ─────────────────────────────────────────────────

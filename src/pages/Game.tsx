@@ -198,8 +198,15 @@ export default function Game() {
         {/* ── Top Bar ─────────────────────────────── */}
         <header class="bg-[#151723]/80 backdrop-blur-sm border-b border-[#b1a59a]/10 px-3 sm:px-4 py-2.5 sm:py-3 shrink-0">
           <div class="max-w-5xl mx-auto flex items-center justify-between gap-2 sm:gap-3">
-            {/* Room code */}
+            {/* Room code + home link */}
             <div class="flex items-center gap-2">
+              <button
+                onClick={() => navigate("/", { replace: true })}
+                class="text-xs opacity-40 hover:opacity-80 hover:text-amber-400 transition-all"
+                title="กลับหน้าแรก"
+              >
+                🏠
+              </button>
               <span class="text-xs opacity-40">ห้อง</span>
               <span class="font-mono font-bold text-sm">{params.code}</span>
             </div>
