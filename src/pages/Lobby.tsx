@@ -53,6 +53,13 @@ export default function Lobby() {
         navigate("/", { replace: true });
         return;
       }
+
+      // If room is already playing/finished, redirect to game page
+      if (r.status === "playing" || r.status === "finished") {
+        navigate(`/game/${params.code}`, { replace: true });
+        return;
+      }
+
       subscribeToRoom(r.id);
     }
   });

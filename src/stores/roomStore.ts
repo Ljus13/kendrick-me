@@ -115,20 +115,20 @@ async function joinRoom(rawCode: string): Promise<boolean> {
 
   const r = roomData as GameRoom;
 
-  // Check status
-  if (r.status !== "waiting") {
-    setLoading(false);
-    setError("ห้องนี้เริ่มเกมไปแล้ว");
-    return false;
-  }
-
-  // Check if already in room
+  // Check if already in room — allow rejoin regardless of status
   const existing = r.players.find((p) => p.session_id === sessionId());
   if (existing) {
     setRoom(r);
     setPlayers(r.players);
     setLoading(false);
     return true;
+  }
+
+  // New player: only allow joining rooms still in 'waiting' status
+  if (r.status !== "waiting") {
+    setLoading(false);
+    setError("ห้องนี้เริ่มเกมไปแล้ว");
+    return false;
   }
 
   // Check max players

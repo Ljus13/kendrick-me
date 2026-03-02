@@ -14,7 +14,7 @@ import {
 import type { Accessor } from "solid-js";
 import { useParams, useNavigate } from "@solidjs/router";
 import { sessionId, nickname } from "../stores/playerStore";
-import { room, players, isHost } from "../stores/roomStore";
+import { room, players, isHost, joinRoom, subscribeToRoom } from "../stores/roomStore";
 import { connectionStatus } from "../stores/roomStore";
 import type { ConnectionStatus } from "../stores/roomStore";
 import {
@@ -60,12 +60,24 @@ export default function Game() {
       return;
     }
 
-    // Guard: must have room
-    const r = room();
+    // If room is not in memory (page refresh), re-fetch from DB
+    let r = room();
+    if (!r) {
+      const ok = await joinRoom(params.code);
+      if (!ok) {
+        navigate("/", { replace: true });
+        return;
+      }
+      r = room();
+    }
+
     if (!r) {
       navigate("/", { replace: true });
       return;
     }
+
+    // Subscribe to room updates (for turn/score changes via postgres_changes)
+    subscribeToRoom(r.id);
 
     // Host initializes the board first
     if (isHost()) {
