@@ -45,12 +45,14 @@ import {
   resetLeaderboardSaved,
 } from "../stores/leaderboardStore";
 import type { Player, GameBoardSlotWithBean } from "../types/database";
+import ChatPanel from "../components/game/ChatPanel";
 
 export default function Game() {
   const params = useParams<{ code: string }>();
   const navigate = useNavigate();
   const [initMessage, setInitMessage] = createSignal("กำลังโหลดกระดาน...");
   const [showGameOver, setShowGameOver] = createSignal(false);
+  const [chatOpen, setChatOpen] = createSignal(false);
 
   // ── Initialize on mount ────────────────────────────────────
   onMount(async () => {
@@ -544,6 +546,11 @@ export default function Game() {
             </div>
           </div>
         </div>
+      </Show>
+
+      {/* ── Chat Panel ──────────────────────────────── */}
+      <Show when={!gameLoading()}>
+        <ChatPanel open={chatOpen()} onToggle={() => setChatOpen((o) => !o)} />
       </Show>
     </main>
   );

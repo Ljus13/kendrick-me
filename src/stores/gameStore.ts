@@ -20,6 +20,14 @@ type RevealPopupData = BroadcastPayloads["bean-revealed"] | null;
 type EmoteType = BroadcastPayloads["emote"]["type"];
 type EmoteData = { from: string; fromName: string; type: EmoteType } | null;
 
+export interface ChatMessage {
+  id: string;
+  from: string;
+  name: string;
+  text: string;
+  ts: number;
+}
+
 // ── State ────────────────────────────────────────────────────
 
 const [board, setBoard] = createStore<GameBoardSlotWithBean[]>([]);
@@ -27,6 +35,9 @@ const [revealPopup, setRevealPopup] = createSignal<RevealPopupData>(null);
 const [gameLoading, setGameLoading] = createSignal(true);
 const [activeEmote, setActiveEmote] = createSignal<EmoteData>(null);
 const [screenShake, setScreenShake] = createSignal(false);
+const [chatMessages, setChatMessages] = createSignal<ChatMessage[]>([]);
+const [unreadChat, setUnreadChat] = createSignal(0);
+let chatOpen = false;  // tracked externally by UI, used to decide unread count
 
 let gameChannel: ReturnType<typeof supabase.channel> | null = null;
 let popupTimer: ReturnType<typeof setTimeout> | null = null;
@@ -329,6 +340,28 @@ function showEmoteBubble(data: NonNullable<EmoteData>): void {
   }, 2000);
 }
 
+// ── Chat ────────────────────────────────────────────────────
+
+function sendChat(text: string): void {
+  if (!gameChannel || !text.trim()) return;
+  const me = players.find((p: Player) => p.session_id === sessionId());
+  const msg: ChatMessage = {
+    id: crypto.randomUUID(),
+    from: sessionId(),
+    name: me?.name ?? "???",
+    text: text.trim(),
+    ts: Date.now(),
+  };
+  gameChannel.send({ type: "broadcast", event: "chat", payload: msg });
+  // Also add locally (broadcast doesn't echo back to sender)
+  setChatMessages((prev) => [...prev.slice(-49), msg]);
+}
+
+function setChatOpenState(open: boolean): void {
+  chatOpen = open;
+  if (open) setUnreadChat(0);
+}
+
 // ── Screen Shake ────────────────────────────────────────────
 
 function triggerScreenShake(): void {
@@ -383,6 +416,15 @@ function subscribeToGameEvents(roomId: string): void {
     }
   });
 
+  // ── chat — receive messages from all players ──
+  gameChannel.on("broadcast", { event: "chat" }, (payload: any) => {
+    const msg = payload.payload as ChatMessage;
+    setChatMessages((prev) => [...prev.slice(-49), msg]);  // keep last 50
+    if (!chatOpen && msg.from !== sessionId()) {
+      setUnreadChat((c) => c + 1);
+    }
+  });
+
   // ── game-ended — handled by roomStore's postgres_changes ──
   // The room().status will change to "finished" which Game.tsx watches
 
@@ -424,6 +466,9 @@ function cleanupGame(): void {
   setRevealPopup(null);
   setActiveEmote(null);
   setScreenShake(false);
+  setChatMessages([]);
+  setUnreadChat(0);
+  chatOpen = false;
   setGameLoading(true);
 }
 
@@ -437,6 +482,8 @@ export {
   setGameLoading,
   activeEmote,
   screenShake,
+  chatMessages,
+  unreadChat,
   // Derived
   isMyTurn,
   currentTurnPlayer,
@@ -451,6 +498,8 @@ export {
   loadBoard,
   clickBean,
   sendEmote,
+  sendChat,
+  setChatOpenState,
   subscribeToGameEvents,
   reconnectGame,
   cleanupGame,
