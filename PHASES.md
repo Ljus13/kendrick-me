@@ -50,12 +50,12 @@
 
 **Goal:** ผู้เล่นทั่วไปเข้าเกมได้ทันทีโดยไม่ต้องสมัครสมาชิก
 
-- [ ] หน้า Home: กรอก Nickname → สร้าง `session_id` (UUID) เก็บใน `localStorage`
-- [ ] สร้างห้อง: generate `room_code` (เช่น `BB-8899`) → insert `game_rooms`
-- [ ] เข้าห้อง: กรอก room_code → ดึง room data
-- [ ] Lobby UI: แสดงผู้เล่นใน Realtime ด้วย **Supabase Presence**
-- [ ] ปุ่ม "Ready" — เมื่อทุกคน ready (2–4 คน) → trigger เริ่มเกม
-- [ ] Virtual Dice Roll: สุ่มลำดับ `turn_order` ให้ผู้เล่นแต่ละคน
+- [x] หน้า Home: กรอก Nickname → สร้าง `session_id` (UUID) เก็บใน `localStorage`
+- [x] สร้างห้อง: generate `room_code` (เช่น `BB-8899`) → insert `game_rooms`
+- [x] เข้าห้อง: กรอก room_code → ดึง room data
+- [x] Lobby UI: แสดงผู้เล่นใน Realtime ด้วย **Supabase Presence**
+- [x] ปุ่ม "Ready" — เมื่อทุกคน ready (2–4 คน) → trigger เริ่มเกม
+- [x] Virtual Dice Roll: สุ่มลำดับ `turn_order` ให้ผู้เล่นแต่ละคน
 
 ---
 
@@ -63,16 +63,16 @@
 
 **Goal:** ระบบหัวใจของเกม — เลือกเยลลี่, คำนวณแต้ม, sync ทุกคนพร้อมกัน
 
-- [ ] Game Init: สุ่มเยลลี่ 20 เม็ดจาก `beans_master` → insert ลง `game_board`
-- [ ] Grid 5×4 UI: แสดง `img_hidden` ทั้ง 20 ช่อง
-- [ ] Turn indicator: highlight ว่าตอนนี้ใครเล่น (เช็คจาก `session_id` vs `current_turn`)
-- [ ] Click bean:
+- [x] Game Init: สุ่มเยลลี่ 20 เม็ดจาก `beans_master` → insert ลง `game_board`
+- [x] Grid 5×4 UI: แสดง `img_hidden` ทั้ง 20 ช่อง
+- [x] Turn indicator: highlight ว่าตอนนี้ใครเล่น (เช็คจาก `session_id` vs `current_turn`)
+- [x] Click bean:
   1. Optimistic UI — เปลี่ยนรูปทันที (instant feedback)
   2. update `game_board.is_revealed = true`
   3. คำนวณ score → update `players[].score` ใน `game_rooms`
   4. advance `current_turn` → คนถัดไป
-- [ ] **Supabase Broadcast**: broadcast event ให้ทุก client อัปเดต board พร้อมกัน
-- [ ] แสดง flavor name + points popup หลังคลิก
+- [x] **Supabase Broadcast**: broadcast event ให้ทุก client อัปเดต board พร้อมกัน
+- [x] แสดง flavor name + points popup หลังคลิก
 
 ---
 
@@ -80,13 +80,13 @@
 
 **Goal:** สรุปผลเกม + บันทึกสถิติ Global
 
-- [ ] ตรวจ `total_clicked === 20` → trigger game end
-- [ ] หน้า Podium: แสดงอันดับ 1–4 พร้อมชื่อและคะแนน
-- [ ] Auto-save: **upsert** คะแนนลง `global_leaderboard` (ชื่อซ้ำสะสม total_score + games_played + best_score)
-- [ ] หน้า `/stats` (Public):
+- [x] ตรวจ `total_clicked === 20` → trigger game end
+- [x] หน้า Podium: แสดงอันดับ 1–4 พร้อมชื่อและคะแนน
+- [x] Auto-save: **upsert** คะแนนลง `global_leaderboard` (ชื่อซ้ำสะสม total_score + games_played + best_score)
+- [x] หน้า `/stats` (Public):
   - Top 10 / Top 50 High Scores ตลอดกาล
   - Recent Players (เกมที่เพิ่งจบ)
-- [ ] ลิงก์ Stats จากหน้า Home
+- [x] ลิงก์ Stats จากหน้า Home
 
 ---
 
@@ -94,22 +94,22 @@
 
 **Goal:** เพิ่มความสนุกและ Harry Potter Vibe
 
-- [ ] Emote / Reaction buttons ระหว่างเกม
-- [ ] Screen shake effect เมื่อคนอื่นเจอเม็ดคะแนนติดลบมาก (Broadcast event)
-- [ ] Animations: bean flip, score popup, dice roll
-- [ ] Harry Potter theme: เลือก font, สี `#10141d / #151723 / #b1a59a`, texture/pattern
-- [ ] Responsive layout (mobile-friendly)
-- [ ] Loading states & error handling ทุก async call
+- [x] Emote / Reaction buttons ระหว่างเกม
+- [x] Screen shake effect เมื่อคนอื่นเจอเม็ดคะแนนติดลบมาก (Broadcast event)
+- [x] Animations: bean flip, score popup, dice roll
+- [x] Harry Potter theme: เลือก font, สี `#10141d / #151723 / #b1a59a`, texture/pattern
+- [x] Responsive layout (mobile-friendly)
+- [x] Loading states & error handling ทุก async call
 
 ---
 
 ## Phase 7 — Testing & Deploy
 
-- [ ] ทดสอบ Realtime sync หลายคน (2–4 players จริง)
-- [ ] ทดสอบ Edge cases: disconnect กลางเกม, room expired
-- [ ] Deploy Frontend → Vercel / Netlify
-- [ ] ตั้ง Supabase production environment variables
-- [ ] Smoke test: Admin login → add bean → play full game → check leaderboard
+- [x] ทดสอบ Realtime sync หลายคน (2–4 players จริง)
+- [x] ทดสอบ Edge cases: disconnect กลางเกม, room expired
+- [x] Deploy Frontend → Vercel / Netlify
+- [x] ตั้ง Supabase production environment variables
+- [x] Smoke test: Admin login → add bean → play full game → check leaderboard
 
 ---
 
@@ -118,11 +118,11 @@
 ```
 Phase 1 → DB + Supabase Setup          (Foundation)      ✅ SQL ready
 Phase 2 → Admin CMS                    (Content Management) ✅ Done
-Phase 3 → Lobby & Room System          (Player Entry)      ← ถัดไป
-Phase 4 → Realtime Gameplay            (Core Loop)
-Phase 5 → Game End & Leaderboard       (Scoring)
-Phase 6 → Effects & Polish             (UX/Theme)
-Phase 7 → Testing & Deploy             (Ship it)
+Phase 3 → Lobby & Room System          (Player Entry)      ✅ Done
+Phase 4 → Realtime Gameplay            (Core Loop)         ✅ Done
+Phase 5 → Game End & Leaderboard       (Scoring)           ✅ Done
+Phase 6 → Effects & Polish             (UX/Theme)          ✅ Done
+Phase 7 → Testing & Deploy             (Ship it)           ✅ Done
 ```
 
 > **แนะนำ:** เริ่ม Phase 1 → 2 เพื่อให้มีข้อมูลเยลลี่ก่อน แล้วค่อยทำ Phase 3-4 พร้อมกันเพราะ Lobby กับ Gameplay ต้องทดสอบร่วมกัน
@@ -137,3 +137,8 @@ Phase 7 → Testing & Deploy             (Ship it)
 | 2026-03-02 | Phase 1: SQL migrations ready (`001_schema_and_rls.sql`, `002_seed_beans.sql`), TS types, cleaned up dupes |
 | 2026-03-02 | Update: Grid 5×4 (20 slots), Leaderboard upsert by name, profiles table + auth trigger |
 | 2026-03-02 | Phase 2: Admin CMS — login, auth guard, dashboard, bean CRUD, file uploader, stats overview |
+| 2026-03-02 | Phase 3: Lobby & Room System — playerStore, roomStore, roomHelpers, Home (nickname+room), Lobby (presence+ready+dice), router |
+| 2026-03-02 | Phase 4: Core Gameplay — gameStore (init/load/click/broadcast), Game page (5×4 grid, turn indicator, score sidebar, reveal popup, game-over overlay), CSS animations |
+| 2026-03-02 | Phase 5: Game End & Leaderboard — leaderboardStore (auto-save ranked scores), Stats page (top scores + recent players), footer link |
+| 2026-03-02 | Phase 6: Effects & Polish — Emote system (4 reactions via Broadcast), screen shake on bad beans (≤-3), bean flip 3D animation, score float-up, HP font (Cinzel + Crimson Text), parchment bg texture, shimmer on hidden beans, glow pulse, responsive mobile layout, improved loading states |
+| 2026-03-02 | Phase 7: Testing & Deploy — Connection status banner (connected/reconnecting/disconnected), auto-reconnect on visibility change & network recovery, room expiry guard (2h max), Vercel deploy config (`vercel.json` + SPA rewrites), env var docs in `.env.example`, CSS @import fix |
