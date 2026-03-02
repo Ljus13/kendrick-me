@@ -36,13 +36,13 @@
 
 **Goal:** ให้ Admin จัดการ Master Data เยลลี่ได้ผ่าน UI โดยไม่ต้องแตะ DB โดยตรง
 
-- [ ] หน้า `/admin/login` — Supabase Email/Password Auth
-- [ ] Route guard: redirect ถ้า session ไม่ valid
-- [ ] หน้า `/admin/dashboard`:
+- [x] หน้า `/admin/login` — Supabase Email/Password Auth
+- [x] Route guard: redirect ถ้า session ไม่ valid
+- [x] หน้า `/admin/dashboard`:
   - ตาราง Bean Listing (ชื่อ, คะแนน, รูป, ปุ่ม Edit/Delete)
-  - Form เพิ่ม Bean ใหม่ (flavor, points, upload `img_hidden` + `img_revealed`)
+  - Form เพิ่ม Bean ใหม่ (flavor, flavor_th, points, upload `img_hidden` + `img_revealed`)
   - File Uploader → Supabase Storage → เก็บ URL ลง `beans_master` อัตโนมัติ
-  - สรุปสถิติ: จำนวนรสชาติ, คะแนนเฉลี่ย
+  - สรุปสถิติ: จำนวนรสชาติ, คะแนนเฉลี่ย, รสดี/แย่, สถานะรูป
 
 ---
 
@@ -117,8 +117,8 @@
 
 ```
 Phase 1 → DB + Supabase Setup          (Foundation)      ✅ SQL ready
-Phase 2 → Admin CMS                    (Content Management)
-Phase 3 → Lobby & Room System          (Player Entry)
+Phase 2 → Admin CMS                    (Content Management) ✅ Done
+Phase 3 → Lobby & Room System          (Player Entry)      ← ถัดไป
 Phase 4 → Realtime Gameplay            (Core Loop)
 Phase 5 → Game End & Leaderboard       (Scoring)
 Phase 6 → Effects & Polish             (UX/Theme)
@@ -136,3 +136,4 @@ Phase 7 → Testing & Deploy             (Ship it)
 | 2026-03-02 | Phase 0: SolidJS + Vite + Tailwind v4 + Supabase client installed, `.gitignore`, `.env.example` created |
 | 2026-03-02 | Phase 1: SQL migrations ready (`001_schema_and_rls.sql`, `002_seed_beans.sql`), TS types, cleaned up dupes |
 | 2026-03-02 | Update: Grid 5×4 (20 slots), Leaderboard upsert by name, profiles table + auth trigger |
+| 2026-03-02 | Phase 2: Admin CMS — login, auth guard, dashboard, bean CRUD, file uploader, stats overview |
