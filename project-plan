@@ -1,0 +1,191 @@
+
+Project Color HEX 10141d, 151723, b1a59a, Harry Potter Vibe
+
+🍬 Bertie Bott's Every Flavour Beans: The Game - Plan
+โปรเจกต์เกมเว็บแนวเสี่ยงดวงเลือกเยลลี่ในรูปแบบ Multi-player Real-time สำหรับคอมมูนิตี้คนรัก Harry Potter
+
+🎮 วิธีการเล่น (How to Play)
+1. การเตรียมตัว (Setup & Lobby)
+ระบุตัวตน: ผู้เล่นกรอกชื่อเล่น (Nickname) ที่ต้องการใช้ในระบบ (ไม่ต้องสมัครสมาชิก)
+
+เลือกห้อง: * สร้างห้องใหม่: จะได้รับรหัส Room Code (เช่น BB-8899) เพื่อส่งให้เพื่อน
+
+เข้าร่วมห้อง: ใส่รหัส Room Code ที่ได้รับจากเพื่อน
+
+รอผู้เล่น: เมื่อมีผู้เล่นในห้องครบ 2-4 คน ทุกคนกดปุ่ม "Ready" เพื่อเริ่มเกม
+
+2. การเริ่มต้น (Match Start)
+ทอยเต๋าจัดลำดับ: ระบบจะทำการสุ่มทอยเต๋า (Virtual Dice) ให้ผู้เล่นทุกคนโดยอัตโนมัติ ใครได้แต้มสูงสุดจะได้เริ่มเป็นคนแรก (Turn 1) และเรียงลำดับตามแต้มที่ได้รับ
+
+เตรียมกระดาน: ระบบจะสุ่มเยลลี่ 100 เม็ดจากคลัง (Database) มาวางเรียงบนกริตขนาด 10x10 โดยที่รูปภาพเริ่มต้นจะเหมือนกันหมด (ยังไม่เห็นรสชาติ)
+
+3. กติกาการเล่น (Gameplay Loop)
+การเลือกเยลลี่: เมื่อถึงตาตัวเอง (Your Turn) ให้เลือกคลิกเยลลี่ที่ยังไม่ถูกเปิดได้ 1 เม็ด
+
+ลุ้นผลลัพธ์: เมื่อคลิกแล้ว รูปภาพเยลลี่จะเปลี่ยนไปตามรสชาติที่สุ่มได้ พร้อมแสดงชื่อรสชาติและคะแนน
+
+รสชาติดี: จะได้รับคะแนนบวก (เช่น รสสายไหม +20 แต้ม)
+
+รสชาติประหลาด: จะได้รับคะแนนลบ (เช่น รสไข่เน่า -50 แต้ม)
+
+สลับตา: เมื่อคลิกเสร็จ ระบบจะเปลี่ยนคิวให้คนถัดไปเล่นต่อทันทีแบบ Real-time ทุกคนในห้องจะเห็นการเคลื่อนไหวพร้อมกัน
+
+4. การตัดสินผลและสรุปคะแนน (Scoring & Ranking)
+เงื่อนไขจบเกม: เกมจะจบลงเมื่อเยลลี่ทั้ง 100 เม็ดถูกคลิกจนครบ หรือตามที่ตกลงกัน
+
+การจัดอันดับ: ระบบจะคำนวณคะแนนรวมของผู้เล่นทุกคน และแสดงผลลำดับที่ 1, 2, 3 และ 4 บนหน้าจอ Podium
+
+บันทึกสถิติ: คะแนนที่ทำได้จะถูกบันทึกเข้าสู่ Global Leaderboard โดยอัตโนมัติ เพื่อประชันกับผู้เล่นคนอื่นๆ ทั่วโลก
+
+💡 ทริคเสริมความสนุก
+Emote & Effects: ในระหว่างที่เพื่อนคลิก คุณสามารถกดปุ่มส่ง Reaction หรือเอฟเฟกต์สั่นหน้าจอแกล้งเพื่อนได้เมื่อเพื่อนเจอเม็ดคะแนนติดลบ
+
+Global Record: หลังจบเกม อย่าลืมไปเช็คที่หน้า Statistics ว่าคะแนนของคุณติด Top 10 ของเซิร์ฟเวอร์หรือไม่!
+
+สำหรับการจัดการข้อมูลเยลลี่ (Master Data) การมีส่วนของ Admin Backend เป็นเรื่องสำคัญมากครับ เพราะคุณจะได้ไม่ต้องเข้าไปแก้ใน Database Direct บ่อยๆ และสามารถอัปโหลดรูปภาพที่วาดจาก Procreate ขึ้นระบบได้ทันที
+
+นี่คือแผนงานส่วนของ Admin System ที่เพิ่มเข้าไปใน plan.md ครับ
+
+🔐 Admin Authentication & Management System
+เนื่องจากผู้เล่นทั่วไปใช้ระบบ No-Auth แต่ Admin ต้องมีความปลอดภัยสูง เราจะใช้ระบบ Supabase Auth เฉพาะสำหรับแอดมินเท่านั้นครับ
+
+1. Admin Authentication
+Method: ใช้ Email/Password Login ผ่าน Supabase Auth
+
+Protection: * สร้างหน้า /admin/login สำหรับเข้าสู่ระบบ
+
+ใช้ Middleware หรือ SolidJS Guard เพื่อเช็คว่าถ้าไม่ใช่แอดมิน ห้ามเข้าถึงหน้าจัดการ (/admin/dashboard)
+
+ใช้ Row Level Security (RLS) ใน Supabase เพื่อกำหนดว่า "เฉพาะคนที่ Login (Authenticated) เท่านั้นที่สามารถ Insert/Update/Delete ข้อมูลในตาราง beans_master ได้"
+
+2. Admin Dashboard (CMS Interface)
+ส่วนนี้จะทำเป็นหน้า UI ง่ายๆ ใน SolidJS เพื่อให้คุณจัดการข้อมูลได้สะดวก:
+
+Bean Listing: ตารางแสดงรายการเยลลี่ทั้งหมดที่มี พร้อมปุ่มแก้ไขและลบ
+
+Add New Bean Form:
+
+ช่องกรอกชื่อรสชาติ (Flavor Name)
+
+ช่องระบุคะแนน (Points) - รองรับทั้งเลขบวกและลบ
+
+File Uploader: สำหรับอัปโหลดรูปภาพ (Hidden/Revealed) เข้าไปยัง Supabase Storage และนำ URL มาเก็บในฐานข้อมูลอัตโนมัติ
+
+Statistics Overview: ดูสรุปคร่าวๆ ว่าตอนนี้มีเยลลี่กี่รสชาติ และมีคะแนนเฉลี่ยเท่าไหร่
+
+🕹️ Admin Workflow
+Login: แอดมินเข้าหน้า /admin/login กรอก Email/Password
+
+Manage: เข้าหน้า Dashboard เพื่อดูรายการเยลลี่ทั้งหมด
+
+Create: วาดรูปเยลลี่รสชาติใหม่ใน Procreate -> เซฟไฟล์ -> กด "Add New" ในระบบ -> อัปโหลดรูปและตั้งค่าคะแนน
+
+Live Update: เมื่อกดเซฟ ข้อมูลจะไปปรากฏในเกมทันทีที่เริ่มตาใหม่
+
+
+🛠 Tech Stack
+Frontend: SolidJS (เน้นความลื่นไหลระดับ Fine-grained Reactivity)
+
+Styling: Tailwind CSS (จัดการ Grid 10x10 และ UI แบบ Responsive)
+
+Backend/Database: Supabase
+
+PostgreSQL: เก็บข้อมูล Master Data และ Game State
+
+Realtime: ใช้ Broadcast สำหรับ Sync การเล่น และ Presence สำหรับเช็คคนในห้อง
+
+Assets: วาดรูปเยลลี่ (Unopened / Revealed) ด้วย Procreate
+
+🆔 Identity & Access (No-Auth System)
+Entry: ผู้เล่นกรอก Nickname ก่อนเข้าสู่หน้าเกม
+
+Identification: * สร้าง session_id (UUID) เก็บไว้ใน localStorage
+
+บันทึก IP Address ร่วมกับ Nickname ใน Table เพื่อใช้อ้างอิงตัวตนในห้องนั้นๆ
+
+Room Access: ใช้ระบบ Room Code (4-6 หลัก) เพื่อเข้าเล่นในห้องส่วนตัวหรือสาธารณะ
+
+🗄 Database Schema
+1. beans_master (คลังข้อมูลเยลลี่)
+id (PK): UUID
+
+flavor: ชื่อรสชาติ (เช่น หญ้า, ขี้หู, เชอร์รี่)
+
+points: แต้ม (เช่น +10, -20, +5)
+
+img_hidden: URL รูปเยลลี่ปกติ
+
+img_revealed: URL รูปเยลลี่หลังโดนคลิก (เช่น รูปโดนกัด)
+
+2. game_rooms (สถานะห้องแข่ง)
+id (PK): UUID
+
+room_code: รหัสห้อง (เช่น 8899)
+
+status: waiting / playing / finished
+
+players: JSONB [{ session_id, name, ip, score, turn_order }]
+
+current_turn: integer (ลำดับที่ต้องเล่นปัจจุบัน)
+
+total_clicked: integer (นับจำนวนเยลลี่ที่ถูกคลิกไปแล้ว)
+
+3. game_board (ข้อมูลกระดานในตานั้นๆ)
+room_id (FK): เชื่อมกับไอดีห้อง
+
+slot_index: 0-99 (ตำแหน่งใน Grid 10x10)
+
+bean_id (FK): ลิงก์ไปที่ beans_master เพื่อสุ่มรสชาติ
+
+is_revealed: boolean (ถูกคลิกไปหรือยัง)
+
+4. global_leaderboard (สถิติรวม)
+id (PK): UUID
+
+player_name: ชื่อที่ผู้เล่นกรอก
+
+score: คะแนนที่ทำได้
+
+played_at: timestamp
+
+ip_address: text (สำหรับตรวจสอบข้อมูล)
+
+🕹 Game Logic & Workflow
+1. Lobby & Setup
+ผู้เล่นกรอกชื่อ -> ได้ session_id -> สร้างหรือจอยห้อง
+
+เมื่อคนครบ (2-4 คน) ทุกคนกด Ready
+
+Dice Roll: ระบบสุ่มทอยเต๋าอัตโนมัติเพื่อจัดลำดับ turn_order ของแต่ละคน
+
+2. Game Initialization
+ระบบสุ่มเยลลี่ 100 เม็ดจาก beans_master มาลงใน game_board
+
+ตั้งค่าให้คนที่มี turn_order: 1 เริ่มเล่นก่อน
+
+3. Gameplay (Real-time)
+Check Turn: SolidJS เช็คว่า session_id ในเครื่องตรงกับคนที่มีสิทธิ์เล่นหรือไม่
+
+Action: 1. ผู้เล่นคลิกเลือกเยลลี่ 1 เม็ด
+2. รูปเปลี่ยนเป็น img_revealed และแต้มถูกคำนวณเข้า Player Score
+3. บันทึกข้อมูลลง game_board และส่งสัญญาณ Realtime ให้ทุกคนเห็นพร้อมกัน
+4. สลับ Turn ไปยังคนถัดไป
+
+4. Game End & Ranking
+เมื่อเยลลี่ถูกคลิกครบ 100 เม็ด ระบบจะสรุปอันดับ 1, 2, 3 และ 4 ในห้อง
+
+Auto-Save: ระบบจะส่งข้อมูลชื่อและคะแนนของทุกคนลงใน global_leaderboard อัตโนมัติ
+
+📊 Global Statistics Page
+Top High Scores: แสดงอันดับคนทำคะแนนสูงสุดตลอดกาล (Top 10 หรือ Top 50)
+
+Recent Players: แสดงรายการผู้เล่นที่เพิ่งจบเกมล่าสุด
+
+Public Access: ใครๆ ก็สามารถเข้ามาดูหน้าสถิตินี้ได้จากหน้าหลักของเกม
+
+💡 Implementation Tips (SolidJS)
+ใช้ createStore สำหรับข้อมูลกระดาน (100 elements) เพื่อให้อัปเดต UI ได้เร็วที่สุด
+
+ใช้ Supabase Broadcast ในการส่งเอฟเฟกต์พิเศษ (เช่น สั่นหน้าจอเวลาเพื่อนเจอเม็ดคะแนนติดลบเยอะๆ)
+
+จัดการ Optimistic UI ตอนคนกดคลิกเยลลี่ เพื่อให้รู้สึกว่าเกมตอบสนองทันที (Instant Feedback)
