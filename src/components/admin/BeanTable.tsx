@@ -26,13 +26,12 @@ export default function BeanTable(props: Props) {
               <tr class="border-t border-[#b1a59a]/5 hover:bg-[#151723]/60 transition-colors">
                 {/* Thumbnail */}
                 <td class="px-4 py-3">
-                  <div class="flex gap-2">
-                    <Show
-                      when={bean.img_hidden}
-                      fallback={<div class="w-10 h-10 rounded bg-[#151723] flex items-center justify-center text-xs text-[#b1a59a]/30">?</div>}
-                    >
-                      <img src={bean.img_hidden!} alt="hidden" class="w-10 h-10 rounded object-cover" />
-                    </Show>
+                  <div class="flex gap-2 items-center">
+                    {/* Hidden: always same mystery image */}
+                    <div class="w-10 h-10 rounded bg-[#151723] border border-[#b1a59a]/10 flex items-center justify-center text-xl" title="รูปก่อนเปิด (เหมือนกันทุกเม็ด)">
+                      🫘
+                    </div>
+                    {/* Revealed: per-bean */}
                     <Show
                       when={bean.img_revealed}
                       fallback={<div class="w-10 h-10 rounded bg-[#151723] flex items-center justify-center text-xs text-[#b1a59a]/30">?</div>}

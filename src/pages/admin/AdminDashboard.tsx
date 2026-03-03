@@ -213,15 +213,6 @@ export default function AdminDashboard() {
             </button>
           </div>
 
-          {/* Form modal */}
-          <Show when={showForm()}>
-            <BeanForm
-              bean={editingBean()}
-              onDone={handleFormDone}
-              onCancel={() => { setShowForm(false); setEditingBean(null); }}
-            />
-          </Show>
-
           {/* Table */}
           <Show
             when={!beans.loading}
@@ -328,7 +319,7 @@ export default function AdminDashboard() {
         </Show>
       </main>
 
-      {/* Modal */}
+      {/* Modal (confirm/alert) */}
       <Modal
         show={!!modalState()}
         title={modalState()?.title ?? ""}
@@ -339,6 +330,25 @@ export default function AdminDashboard() {
         onConfirm={modalState()?.onConfirm}
         onClose={() => setModalState(null)}
       />
+
+      {/* BeanForm Popup */}
+      <Show when={showForm()}>
+        <div class="fixed inset-0 z-50 flex items-start justify-center p-4 overflow-y-auto">
+          {/* Backdrop */}
+          <div
+            class="fixed inset-0 bg-black/70 backdrop-blur-sm"
+            onClick={() => { setShowForm(false); setEditingBean(null); }}
+          />
+          {/* Dialog */}
+          <div class="relative w-full max-w-2xl my-8">
+            <BeanForm
+              bean={editingBean()}
+              onDone={handleFormDone}
+              onCancel={() => { setShowForm(false); setEditingBean(null); }}
+            />
+          </div>
+        </div>
+      </Show>
     </div>
   );
 }

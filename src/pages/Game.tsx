@@ -335,24 +335,12 @@ export default function Game() {
                             : "border-[#b1a59a]/10 bg-[#151723] cursor-not-allowed opacity-60"
                       }`}
                   >
-                    {/* Hidden state */}
+                    {/* Hidden state — all beans show the same mystery image */}
                     <Show when={!slot.is_revealed}>
                       <div class="flex flex-col items-center justify-center w-full h-full p-1 bean-shimmer">
-                        <Show
-                          when={slot.bean.img_hidden}
-                          fallback={
-                            <span class="text-2xl sm:text-4xl select-none">
-                              🫘
-                            </span>
-                          }
-                        >
-                          <img
-                            src={slot.bean.img_hidden!}
-                            alt="hidden bean"
-                            class="w-full h-full object-contain"
-                            draggable={false}
-                          />
-                        </Show>
+                        <span class="text-2xl sm:text-4xl select-none">
+                          🫘
+                        </span>
                         <span class="text-[9px] sm:text-[10px] opacity-20 mt-0.5 font-mono">
                           #{slot.slot_index + 1}
                         </span>

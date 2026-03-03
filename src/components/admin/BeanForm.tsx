@@ -15,7 +15,6 @@ export default function BeanForm(props: Props) {
   const [flavor, setFlavor] = createSignal(props.bean?.flavor ?? "");
   const [flavorTh, setFlavorTh] = createSignal(props.bean?.flavor_th ?? "");
   const [points, setPoints] = createSignal(props.bean?.points ?? 0);
-  const [imgHidden, setImgHidden] = createSignal(props.bean?.img_hidden ?? "");
   const [imgRevealed, setImgRevealed] = createSignal(props.bean?.img_revealed ?? "");
   const [saving, setSaving] = createSignal(false);
   const [error, setError] = createSignal("");
@@ -29,7 +28,6 @@ export default function BeanForm(props: Props) {
       flavor: flavor(),
       flavor_th: flavorTh(),
       points: points(),
-      img_hidden: imgHidden() || null,
       img_revealed: imgRevealed() || null,
     };
 
@@ -106,14 +104,13 @@ export default function BeanForm(props: Props) {
           />
         </div>
 
-        {/* Row 3: Image uploads */}
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <FileUploader
-            label="รูปก่อนเปิด (Hidden)"
-            folder="hidden"
-            currentUrl={imgHidden()}
-            onUploaded={setImgHidden}
-          />
+        {/* Row 3: Image upload - Revealed only (hidden uses shared mystery image) */}
+        <div class="space-y-1">
+          <div class="flex items-center gap-2 mb-1">
+            <span class="text-xs text-[#b1a59a]/40">รูปก่อนเปิด:</span>
+            <span class="text-lg">🫘</span>
+            <span class="text-xs text-[#b1a59a]/40">(ใช้รูปเดียวกันทุกเม็ด — ไม่ต้องอัพโหลด)</span>
+          </div>
           <FileUploader
             label="รูปหลังเปิด (Revealed)"
             folder="revealed"
