@@ -1,7 +1,7 @@
 import { createSignal, Show, onMount } from "solid-js";
 import { useNavigate } from "@solidjs/router";
-import { nickname, setNickname, isReady, activeRoomCode, setActiveRoomCode, sessionId } from "../stores/playerStore";
-import { createRoom, joinRoom, error, loading } from "../stores/roomStore";
+import { nickname, setNickname, isReady, activeRoomCode, setActiveRoomCode, sessionId, initClientIP, clientIP } from "../stores/playerStore";
+import { createRoom, joinRoom, error, loading, checkIPConflict, checkNameConflict, takeOverSession, type IPConflictResult } from "../stores/roomStore";
 import { isValidRoomCode, normalizeRoomCode } from "../lib/roomHelpers";
 import { supabase } from "../lib/supabase";
 import type { Player } from "../types/database";
@@ -12,36 +12,46 @@ export default function Home() {
   const [roomCode, setRoomCode] = createSignal("");
   const [localError, setLocalError] = createSignal("");
   const [pendingRejoin, setPendingRejoin] = createSignal<string>("");
+  const [ipConflict, setIpConflict] = createSignal<IPConflictResult & { found: true } | null>(null);
 
   // ── Check if player was in a room (browser crash recovery) ──
   onMount(async () => {
+    // Fetch client IP in parallel with room check
+    const ipPromise = initClientIP();
+
     const saved = activeRoomCode();
-    if (!saved || !isReady()) return;
+    if (saved && isReady()) {
+      // Verify room still exists and player is still in it
+      const { data } = await supabase
+        .from("game_rooms")
+        .select("*")
+        .eq("room_code", saved)
+        .single();
 
-    // Verify room still exists and player is still in it
-    const { data } = await supabase
-      .from("game_rooms")
-      .select("*")
-      .eq("room_code", saved)
-      .single();
+      if (!data) {
+        setActiveRoomCode("");
+      } else {
+        const isInRoom = (data.players as Player[]).some(
+          (p: Player) => p.session_id === sessionId()
+        );
 
-    if (!data) {
-      // Room was deleted or doesn't exist
-      setActiveRoomCode("");
-      return;
+        if (!isInRoom || data.status === "finished") {
+          setActiveRoomCode("");
+        } else {
+          // Player still in an active room — show rejoin prompt
+          setPendingRejoin(saved);
+        }
+      }
     }
 
-    const isInRoom = (data.players as Player[]).some(
-      (p: Player) => p.session_id === sessionId()
-    );
-
-    if (!isInRoom || data.status === "finished") {
-      setActiveRoomCode("");
-      return;
+    // After IP is ready, check for same-device different-browser
+    const ip = await ipPromise;
+    if (ip && !pendingRejoin()) {
+      const conflict = await checkIPConflict(ip, sessionId());
+      if (conflict.found) {
+        setIpConflict(conflict as IPConflictResult & { found: true });
+      }
     }
-
-    // Player still in an active room — show rejoin prompt
-    setPendingRejoin(saved);
   });
 
   function handleRejoin() {
@@ -75,12 +85,33 @@ export default function Home() {
     })();
   }
 
+  /** Take over an existing session from same device / different browser */
+  async function handleIPTakeOver() {
+    const conflict = ipConflict();
+    if (!conflict) return;
+    const ok = await takeOverSession(conflict.roomCode!, conflict.sessionId!);
+    setIpConflict(null);
+    if (ok) {
+      navigate(`/lobby/${conflict.roomCode}`);
+    }
+  }
+
+  function handleIPDismiss() {
+    setIpConflict(null);
+  }
+
   async function handleCreate() {
     if (!isReady()) {
       setLocalError("กรุณาใส่ชื่อก่อน (อย่างน้อย 2 ตัวอักษร)");
       return;
     }
     setLocalError("");
+    // Check name conflict
+    const nameConflict = await checkNameConflict(nickname(), sessionId());
+    if (nameConflict) {
+      setLocalError("มีการใช้งานชื่อนี้อยู่ โปรดใช้ชื่ออื่น");
+      return;
+    }
     const code = await createRoom();
     if (code) {
       navigate(`/lobby/${code}`);
@@ -98,6 +129,12 @@ export default function Home() {
       return;
     }
     setLocalError("");
+    // Check name conflict
+    const nameConflict = await checkNameConflict(nickname(), sessionId());
+    if (nameConflict) {
+      setLocalError("มีการใช้งานชื่อนี้อยู่ โปรดใช้ชื่ออื่น");
+      return;
+    }
     const ok = await joinRoom(code);
     if (ok) {
       navigate(`/lobby/${code}`);
@@ -176,6 +213,37 @@ export default function Home() {
               </button>
             </div>
           </div>
+        </Show>
+
+        {/* ── IP Conflict Banner (same device, different browser) ── */}
+        <Show when={ipConflict()}>
+          {(conflict) => (
+            <div class="px-4 py-3 rounded-xl bg-purple-500/10 border border-purple-500/30 space-y-2">
+              <p class="text-sm text-purple-400 font-medium">
+                🔗 อุปกรณ์ของคุณกำลังอยู่ในห้อง{" "}
+                <span class="font-mono font-bold">{conflict().roomCode}</span>
+              </p>
+              <p class="text-xs opacity-60">
+                พบผู้เล่น "{conflict().playerName}" จาก IP เดียวกัน — เล่นต่อหรือไม่?
+              </p>
+              <div class="flex gap-2">
+                <button
+                  onClick={handleIPTakeOver}
+                  class="flex-1 py-2 rounded-lg bg-purple-600/80 hover:bg-purple-600 text-white
+                         font-bold text-sm transition-all"
+                >
+                  ▶️ เล่นต่อ
+                </button>
+                <button
+                  onClick={handleIPDismiss}
+                  class="flex-1 py-2 rounded-lg bg-[#151723] border border-[#b1a59a]/20
+                         text-sm hover:bg-[#1e2035] transition-all"
+                >
+                  ✖ ไม่ใช่ฉัน
+                </button>
+              </div>
+            </div>
+          )}
         </Show>
 
         {/* ── Action Buttons ────────────────────────── */}

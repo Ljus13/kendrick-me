@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700;900&family=Crimson+Text:ital,wght@0,400;0,600;1,400&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700;900&family=Kanit:wght@300;400;500;600;700&display=swap');
 
 @import "tailwindcss";
 
@@ -7,13 +7,13 @@
   --color-bg-surface: #151723;
   --color-cream: #b1a59a;
   --font-family-display: 'Cinzel', serif;
-  --font-family-body: 'Crimson Text', serif;
+  --font-family-body: 'Kanit', sans-serif;
 }
 
 body {
   background-color: #10141d;
   color: #b1a59a;
-  font-family: 'Crimson Text', Georgia, serif;
+  font-family: 'Kanit', sans-serif;
 }
 
 h1, h2, h3, .font-display {

@@ -6,7 +6,7 @@ import { createSignal } from "solid-js";
 import { createStore, produce } from "solid-js/store";
 import { supabase } from "../lib/supabase";
 import { sessionId } from "./playerStore";
-import { room, players } from "./roomStore";
+import { room, players, onlinePlayers } from "./roomStore";
 import type {
   Bean,
   Player,
@@ -94,6 +94,60 @@ const rankedPlayers = (): Player[] => {
     (a: Player, b: Player) => b.score - a.score,
   );
 };
+
+// ── Turn Skip Helpers ────────────────────────────────────────
+
+/** Find next online player's turn, skipping disconnected */
+function findNextOnlineTurn(
+  currentTurn: number,
+  sortedPlayers: Player[],
+  onlineSet: Set<string>,
+): number {
+  let next = currentTurn;
+  let attempts = 0;
+  do {
+    next = (next + 1) % sortedPlayers.length;
+    attempts++;
+  } while (
+    !onlineSet.has(sortedPlayers[next].session_id) &&
+    attempts < sortedPlayers.length
+  );
+  // If ALL offline, just advance normally
+  if (attempts >= sortedPlayers.length) {
+    return (currentTurn + 1) % sortedPlayers.length;
+  }
+  return next;
+}
+
+/** Auto-skip a disconnected player's turn (called by active host) */
+async function autoSkipTurn(): Promise<void> {
+  const r = room();
+  if (!r || r.status !== "playing" || isGameOver()) return;
+
+  const sorted = [...r.players].sort(
+    (a: Player, b: Player) => a.turn_order - b.turn_order,
+  );
+  const online = onlinePlayers();
+  const nextTurn = findNextOnlineTurn(r.current_turn, sorted, online);
+
+  if (nextTurn === r.current_turn) return; // no change
+
+  await supabase
+    .from("game_rooms")
+    .update({ current_turn: nextTurn })
+    .eq("id", r.id);
+
+  if (gameChannel) {
+    await gameChannel.send({
+      type: "broadcast",
+      event: "turn-changed",
+      payload: {
+        current_turn: nextTurn,
+        next_player_session_id: sorted[nextTurn]?.session_id ?? "",
+      },
+    });
+  }
+}
 
 // ── Initialize Board (host only) ────────────────────────────
 
@@ -235,7 +289,7 @@ async function clickBean(slotIndex: number): Promise<void> {
   const sorted = [...r.players].sort(
     (a: Player, b: Player) => a.turn_order - b.turn_order,
   );
-  const nextTurn = (r.current_turn + 1) % sorted.length;
+  const nextTurn = findNextOnlineTurn(r.current_turn, sorted, onlinePlayers());
   const newStatus = totalClicked >= 20 ? "finished" : "playing";
 
   await supabase
@@ -497,6 +551,7 @@ export {
   initBoard,
   loadBoard,
   clickBean,
+  autoSkipTurn,
   sendEmote,
   sendChat,
   setChatOpenState,

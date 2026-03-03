@@ -5,7 +5,7 @@
 import { createSignal } from "solid-js";
 import { createStore } from "solid-js/store";
 import { supabase } from "../lib/supabase";
-import { sessionId, nickname, setActiveRoomCode } from "./playerStore";
+import { sessionId, nickname, setActiveRoomCode, clientIP } from "./playerStore";
 import {
   generateRoomCode,
   rollTurnOrder,
@@ -20,6 +20,16 @@ import type { RealtimeChannel } from "@supabase/supabase-js";
 
 export type ConnectionStatus = "connected" | "disconnected" | "reconnecting";
 const [connectionStatus, setConnectionStatus] = createSignal<ConnectionStatus>("connected");
+
+// ── Online Players (Presence-based) ─────────────────────────
+
+const [onlinePlayers, setOnlinePlayers] = createSignal<Set<string>>(new Set());
+
+// ── Host Disconnect Timer ───────────────────────────────────
+
+const HOST_TRANSFER_DELAY = 2 * 60 * 1000; // 2 minutes
+let hostDisconnectTimer: ReturnType<typeof setTimeout> | null = null;
+const [hostDisconnectedAt, setHostDisconnectedAt] = createSignal<number | null>(null);
 
 // ── State ───────────────────────────────────────────────────
 
@@ -56,11 +66,19 @@ async function createRoom(): Promise<string | null> {
   setLoading(true);
   setError("");
 
+  // Check duplicate name across all active rooms
+  const nameConflict = await checkNameConflict(nickname(), sessionId());
+  if (nameConflict) {
+    setLoading(false);
+    setError("มีการใช้งานชื่อ \"" + nickname() + "\" อยู่แล้ว โปรดใช้ชื่ออื่น");
+    return null;
+  }
+
   const code = generateRoomCode();
   const player: Player = {
     session_id: sessionId(),
     name: nickname(),
-    ip: "",
+    ip: clientIP(),
     score: 0,
     turn_order: 0,
     is_ready: false,
@@ -126,6 +144,14 @@ async function joinRoom(rawCode: string): Promise<boolean> {
     return true;
   }
 
+  // Check duplicate name across all active rooms (different IP)
+  const nameConflict = await checkNameConflict(nickname(), sessionId());
+  if (nameConflict) {
+    setLoading(false);
+    setError("มีการใช้งานชื่อ \"" + nickname() + "\" อยู่แล้ว โปรดใช้ชื่ออื่น");
+    return false;
+  }
+
   // New player: check if already in ANOTHER room (prevent multi-room)
   const { data: otherRooms } = await supabase
     .from("game_rooms")
@@ -171,7 +197,7 @@ async function joinRoom(rawCode: string): Promise<boolean> {
   const newPlayer: Player = {
     session_id: sessionId(),
     name: nickname(),
-    ip: "",
+    ip: clientIP(),
     score: 0,
     turn_order: r.players.length,
     is_ready: false,
@@ -214,7 +240,33 @@ function subscribeToRoom(roomId: string) {
 
   // Track presence (for showing who's online)
   channel.on("presence", { event: "sync" }, () => {
-    // Presence sync — we use DB as source of truth, presence is visual only
+    const state = channel!.presenceState();
+    const ids = new Set<string>();
+    for (const presences of Object.values(state)) {
+      for (const p of presences as any[]) {
+        if (p.session_id) ids.add(p.session_id as string);
+      }
+    }
+    setOnlinePlayers(ids);
+  });
+
+  // Detect player join (cancel host timer if host returns)
+  channel.on("presence", { event: "join" }, ({ newPresences }: any) => {
+    for (const p of newPresences) {
+      const r = room();
+      if (r && r.players[0]?.session_id === p.session_id && hostDisconnectTimer) {
+        clearTimeout(hostDisconnectTimer);
+        hostDisconnectTimer = null;
+        setHostDisconnectedAt(null);
+      }
+    }
+  });
+
+  // Detect player leave (start host timer if host left)
+  channel.on("presence", { event: "leave" }, ({ leftPresences }: any) => {
+    for (const p of leftPresences) {
+      handlePlayerLeavePresence(p.session_id as string);
+    }
   });
 
   // Listen to DB changes on this room
@@ -393,6 +445,160 @@ if (typeof window !== "undefined") {
   document.addEventListener("visibilitychange", handleVisibilityChange);
 }
 
+// ── Host Disconnect Detection ───────────────────────────────
+
+function handlePlayerLeavePresence(leftSessionId: string) {
+  const r = room();
+  if (!r || r.status !== "playing") return;
+
+  // Check if the host left
+  if (r.players[0]?.session_id === leftSessionId) {
+    if (!hostDisconnectTimer) {
+      setHostDisconnectedAt(Date.now());
+      hostDisconnectTimer = setTimeout(() => {
+        transferHost();
+      }, HOST_TRANSFER_DELAY);
+    }
+  }
+}
+
+/** Transfer host role to a random online player after 2-min timeout */
+async function transferHost() {
+  const r = room();
+  if (!r) return;
+
+  const online = onlinePlayers();
+
+  // Only the first online player executes the actual DB write
+  const sorted = [...r.players].sort((a: Player, b: Player) => a.turn_order - b.turn_order);
+  const firstOnline = sorted.find((p) => online.has(p.session_id));
+  if (!firstOnline || firstOnline.session_id !== sessionId()) {
+    hostDisconnectTimer = null;
+    setHostDisconnectedAt(null);
+    return;
+  }
+
+  const onlineOthers = r.players.filter(
+    (p) => p.session_id !== r.players[0].session_id && online.has(p.session_id)
+  );
+
+  if (onlineOthers.length === 0) return;
+
+  // Random pick
+  const newHost = onlineOthers[Math.floor(Math.random() * onlineOthers.length)];
+
+  // Reorder: put new host first, keep others in same relative order
+  const rest = r.players.filter((p) => p.session_id !== newHost.session_id);
+  const reordered = [newHost, ...rest];
+
+  await supabase
+    .from("game_rooms")
+    .update({ players: reordered })
+    .eq("id", r.id);
+
+  hostDisconnectTimer = null;
+  setHostDisconnectedAt(null);
+}
+
+// ── End Game Early ──────────────────────────────────────────
+
+async function endGameEarly() {
+  const r = room();
+  if (!r || r.status === "finished") return;
+
+  await supabase
+    .from("game_rooms")
+    .update({ status: "finished" })
+    .eq("id", r.id);
+}
+
+// ── Name & IP Conflict Checks ───────────────────────────────
+
+/** Check if the name is used by another session in any active room */
+async function checkNameConflict(name: string, mySessionId: string): Promise<boolean> {
+  const { data } = await supabase
+    .from("game_rooms")
+    .select("players")
+    .in("status", ["waiting", "playing"]);
+
+  if (!data) return false;
+
+  for (const rm of data) {
+    const roomPlayers = rm.players as Player[];
+    for (const p of roomPlayers) {
+      if (p.name === name && p.session_id !== mySessionId) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+/** Check if the same IP (different session) is in an active room */
+export interface IPConflictResult {
+  found: boolean;
+  roomCode?: string;
+  playerName?: string;
+  sessionId?: string;
+}
+
+async function checkIPConflict(ip: string, mySessionId: string): Promise<IPConflictResult> {
+  if (!ip) return { found: false };
+
+  const { data } = await supabase
+    .from("game_rooms")
+    .select("room_code, players")
+    .in("status", ["waiting", "playing"]);
+
+  if (!data) return { found: false };
+
+  for (const rm of data) {
+    const roomPlayers = rm.players as Player[];
+    for (const p of roomPlayers) {
+      if (p.ip === ip && p.session_id !== mySessionId) {
+        return {
+          found: true,
+          roomCode: rm.room_code as string,
+          playerName: p.name,
+          sessionId: p.session_id,
+        };
+      }
+    }
+  }
+  return { found: false };
+}
+
+/** Take over an existing session (same device, different browser) */
+async function takeOverSession(roomCode: string, oldSessionId: string): Promise<boolean> {
+  const { data } = await supabase
+    .from("game_rooms")
+    .select("*")
+    .eq("room_code", roomCode)
+    .single();
+
+  if (!data) return false;
+
+  const r = data as GameRoom;
+  const updatedPlayers = r.players.map((p: Player) =>
+    p.session_id === oldSessionId
+      ? { ...p, session_id: sessionId(), name: nickname(), ip: clientIP() }
+      : p
+  );
+
+  const { error: updateErr } = await supabase
+    .from("game_rooms")
+    .update({ players: updatedPlayers })
+    .eq("id", r.id);
+
+  if (updateErr) return false;
+
+  r.players = updatedPlayers;
+  setRoom(r);
+  setPlayers(updatedPlayers);
+  setActiveRoomCode(roomCode);
+  return true;
+}
+
 // ── Leave Room ──────────────────────────────────────────────
 
 async function leaveRoom() {
@@ -422,6 +628,10 @@ function cleanup() {
     supabase.removeChannel(channel);
     channel = null;
   }
+  if (hostDisconnectTimer) {
+    clearTimeout(hostDisconnectTimer);
+    hostDisconnectTimer = null;
+  }
   _currentRoomId = null;
   setRoom(null);
   setPlayers([]);
@@ -429,6 +639,8 @@ function cleanup() {
   setDiceResults(null);
   setConnectionStatus("connected");
   setActiveRoomCode("");
+  setOnlinePlayers(new Set<string>());
+  setHostDisconnectedAt(null);
 }
 
 // ── Exports ─────────────────────────────────────────────────
@@ -445,6 +657,8 @@ export {
   allReady,
   canStart,
   isRoomExpired,
+  onlinePlayers,
+  hostDisconnectedAt,
   createRoom,
   joinRoom,
   subscribeToRoom,
@@ -453,4 +667,9 @@ export {
   leaveRoom,
   reconnect,
   cleanup,
+  checkNameConflict,
+  checkIPConflict,
+  takeOverSession,
+  endGameEarly,
+  transferHost,
 };

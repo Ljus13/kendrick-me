@@ -2,6 +2,7 @@
 // Player Session Store — No-auth player identity via localStorage
 // ============================================================
 import { createSignal } from "solid-js";
+import { getPublicIP } from "../lib/ip";
 
 const SESSION_KEY = "bb_session_id";
 const NICKNAME_KEY = "bb_nickname";
@@ -34,6 +35,14 @@ const [nickname, setNicknameSignal] = createSignal<string>(getSavedNickname());
 const [activeRoomCode, setActiveRoomCodeSignal] = createSignal<string>(
   localStorage.getItem(ACTIVE_ROOM_KEY) ?? ""
 );
+const [clientIP, setClientIP] = createSignal<string>("");
+
+/** Fetch and cache client's public IP */
+async function initClientIP(): Promise<string> {
+  const ip = await getPublicIP();
+  setClientIP(ip);
+  return ip;
+}
 
 /** Set nickname and persist to localStorage */
 function setNickname(name: string) {
@@ -57,4 +66,4 @@ function isReady(): boolean {
   return nickname().length >= 2;
 }
 
-export { sessionId, nickname, setNickname, isReady, activeRoomCode, setActiveRoomCode };
+export { sessionId, nickname, setNickname, isReady, activeRoomCode, setActiveRoomCode, clientIP, initClientIP };

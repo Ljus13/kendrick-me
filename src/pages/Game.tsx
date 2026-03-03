@@ -15,7 +15,7 @@ import type { Accessor } from "solid-js";
 import { useParams, useNavigate } from "@solidjs/router";
 import { sessionId, nickname } from "../stores/playerStore";
 import { room, players, isHost, joinRoom, subscribeToRoom } from "../stores/roomStore";
-import { connectionStatus } from "../stores/roomStore";
+import { connectionStatus, onlinePlayers, hostDisconnectedAt, endGameEarly } from "../stores/roomStore";
 import type { ConnectionStatus } from "../stores/roomStore";
 import {
   board,
@@ -31,6 +31,7 @@ import {
   initBoard,
   loadBoard,
   clickBean,
+  autoSkipTurn,
   subscribeToGameEvents,
   reconnectGame,
   cleanupGame,
@@ -53,6 +54,20 @@ export default function Game() {
   const [initMessage, setInitMessage] = createSignal("กำลังโหลดกระดาน...");
   const [showGameOver, setShowGameOver] = createSignal(false);
   const [chatOpen, setChatOpen] = createSignal(false);
+  const [showDisconnectModal, setShowDisconnectModal] = createSignal(false);
+  const [hostCountdown, setHostCountdown] = createSignal("");
+
+  /** Deterministic "active host": first online player in turn order */
+  const isActiveHost = (): boolean => {
+    const r = room();
+    if (!r) return false;
+    const online = onlinePlayers();
+    const sorted = [...r.players].sort(
+      (a: Player, b: Player) => a.turn_order - b.turn_order,
+    );
+    const firstOnline = sorted.find((p) => online.has(p.session_id));
+    return firstOnline?.session_id === sessionId();
+  };
 
   // ── Initialize on mount ────────────────────────────────────
   onMount(async () => {
@@ -133,6 +148,54 @@ export default function Game() {
     }
   });
 
+  // ── Auto-skip disconnected player's turn ───────────────────
+  createEffect(() => {
+    const r = room();
+    const turnPlayer = currentTurnPlayer();
+    const online = onlinePlayers();
+
+    if (!r || r.status !== "playing" || isGameOver() || !turnPlayer) return;
+    if (online.has(turnPlayer.session_id)) return; // Online — no skip needed
+    if (!isActiveHost()) return; // Only active host executes
+
+    const timer = setTimeout(() => autoSkipTurn(), 5000);
+    onCleanup(() => clearTimeout(timer));
+  });
+
+  // ── Show disconnect modal when only 1 player remains ───────
+  createEffect(() => {
+    const r = room();
+    if (!r || r.status !== "playing" || isGameOver()) {
+      setShowDisconnectModal(false);
+      return;
+    }
+    const online = onlinePlayers();
+    const onlineCount = r.players.filter((p) => online.has(p.session_id)).length;
+    if (onlineCount <= 1 && r.players.length >= 2 && online.has(sessionId())) {
+      setShowDisconnectModal(true);
+    } else {
+      setShowDisconnectModal(false);
+    }
+  });
+
+  // ── Host disconnect countdown ──────────────────────────────
+  createEffect(() => {
+    const disconnectedAt = hostDisconnectedAt();
+    if (!disconnectedAt) {
+      setHostCountdown("");
+      return;
+    }
+    const update = () => {
+      const remaining = Math.max(0, 2 * 60 * 1000 - (Date.now() - disconnectedAt));
+      const m = Math.floor(remaining / 60000);
+      const s = Math.floor((remaining % 60000) / 1000);
+      setHostCountdown(`${m}:${s.toString().padStart(2, "0")}`);
+    };
+    update();
+    const iv = setInterval(update, 1000);
+    onCleanup(() => clearInterval(iv));
+  });
+
   // ── Cleanup ────────────────────────────────────────────────
   onCleanup(() => {
     cleanupGame();
@@ -193,7 +256,14 @@ export default function Game() {
           >
             {connectionStatus() === "reconnecting"
               ? "⏳ กำลังเชื่อมต่อใหม่..."
-              : "❌ ขาดการเชื่อมต่อ — รอเครือข่ายกลับมา"}
+              : "🔗 ไม่มีการเชื่อมต่อ — รอเครือข่ายกลับมา"}
+          </div>
+        </Show>
+
+        {/* ── Host Disconnect Countdown Banner ────── */}
+        <Show when={hostCountdown()}>
+          <div class="text-center text-sm font-medium py-2 px-4 shrink-0 bg-purple-500/20 text-purple-400">
+            👑 หัวห้องหลุด — โอนสิทธิ์ใน {hostCountdown()}
           </div>
         </Show>
 
@@ -344,6 +414,16 @@ export default function Game() {
                           {playerEmoji(i())}
                         </span>
 
+                        {/* Online indicator */}
+                        <Show
+                          when={onlinePlayers().has(p.session_id)}
+                          fallback={
+                            <span class="text-xs text-red-400 shrink-0" title="หลุดจากเกม">🔗</span>
+                          }
+                        >
+                          <span class="w-2 h-2 bg-emerald-400 rounded-full shrink-0" title="ออนไลน์" />
+                        </Show>
+
                         {/* Name + turn arrow */}
                         <div class="flex-1 min-w-0">
                           <div class="flex items-center gap-1">
@@ -478,6 +558,37 @@ export default function Game() {
             </div>
           </div>
         )}
+      </Show>
+
+      {/* ── Disconnect Modal (only 1 player left) ──── */}
+      <Show when={showDisconnectModal() && !showGameOver()}>
+        <div class="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 animate-fade-in">
+          <div class="bg-[#151723] border border-amber-500/30 rounded-2xl p-5 sm:p-6 max-w-sm w-full mx-4 text-center space-y-4">
+            <div class="text-4xl">⚠️</div>
+            <h3 class="text-lg font-display font-bold text-amber-400">
+              ผู้เล่นอื่นหลุดจากเกม
+            </h3>
+            <p class="text-sm opacity-60">
+              รออีกคนกลับมา หรือจบเกมเพื่อนับคะแนน?
+            </p>
+            <div class="flex gap-3">
+              <button
+                onClick={() => setShowDisconnectModal(false)}
+                class="flex-1 py-2.5 rounded-lg bg-[#b1a59a]/10 border border-[#b1a59a]/20
+                       hover:bg-[#b1a59a]/20 font-semibold text-sm transition-all"
+              >
+                🕐 รอ
+              </button>
+              <button
+                onClick={() => { endGameEarly(); setShowDisconnectModal(false); }}
+                class="flex-1 py-2.5 rounded-lg bg-amber-600/80 hover:bg-amber-600
+                       text-white font-bold text-sm transition-all"
+              >
+                🏁 จบเกม
+              </button>
+            </div>
+          </div>
+        </div>
       </Show>
 
       {/* ── Game Over Overlay ───────────────────────── */}
