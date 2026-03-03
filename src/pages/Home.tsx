@@ -5,6 +5,8 @@ import { createRoom, joinRoom, error, loading, checkIPConflict, checkNameConflic
 import { isValidRoomCode, normalizeRoomCode } from "../lib/roomHelpers";
 import { supabase } from "../lib/supabase";
 import type { Player } from "../types/database";
+import { BEAN_COUNT_OPTIONS, getMaxPlayers } from "../types/database";
+import type { BeanCountOption } from "../types/database";
 
 export default function Home() {
   const navigate = useNavigate();
@@ -13,6 +15,7 @@ export default function Home() {
   const [localError, setLocalError] = createSignal("");
   const [pendingRejoin, setPendingRejoin] = createSignal<string>("");
   const [ipConflict, setIpConflict] = createSignal<IPConflictResult & { found: true } | null>(null);
+  const [selectedBeanCount, setSelectedBeanCount] = createSignal<BeanCountOption>(20);
 
   // ── Check if player was in a room (browser crash recovery) ──
   onMount(async () => {
@@ -112,7 +115,7 @@ export default function Home() {
       setLocalError("มีการใช้งานชื่อนี้อยู่ โปรดใช้ชื่ออื่น");
       return;
     }
-    const code = await createRoom();
+    const code = await createRoom(selectedBeanCount());
     if (code) {
       navigate(`/lobby/${code}`);
     }
@@ -160,7 +163,7 @@ export default function Home() {
           </h1>
           <p class="text-base sm:text-lg font-display font-medium opacity-80">Every Flavour Beans</p>
           <p class="text-xs sm:text-sm opacity-50">
-            เกมเสี่ยงดวงเยลลี่สไตล์ Harry Potter — เล่นได้ 2-4 คน
+            เกมเสี่ยงดวงเยลลี่สไตล์ Harry Potter — เล่นได้ 2-6 คน
           </p>
         </div>
 
@@ -272,8 +275,32 @@ export default function Home() {
         <Show when={mode() === "create"}>
           <div class="space-y-3">
             <p class="text-sm opacity-60 text-center">
-              คลิกเพื่อสร้างห้องใหม่ แล้วแชร์รหัสให้เพื่อน!
+              เลือกจำนวนเยลลี่ แล้วสร้างห้อง แชร์รหัสให้เพื่อน!
             </p>
+
+            {/* Bean Count Selector */}
+            <div class="space-y-2">
+              <label class="text-sm font-medium opacity-70">🪭 จำนวนเยลลี่</label>
+              <div class="grid grid-cols-4 gap-2">
+                {BEAN_COUNT_OPTIONS.map((count) => (
+                  <button
+                    onClick={() => setSelectedBeanCount(count)}
+                    class={`py-2.5 rounded-lg border text-center font-bold text-sm transition-all ${
+                      selectedBeanCount() === count
+                        ? "bg-amber-600/80 border-amber-500 text-white shadow-lg shadow-amber-500/20"
+                        : "bg-[#151723] border-[#b1a59a]/20 hover:border-[#b1a59a]/40 hover:bg-[#1e2035]"
+                    }`}
+                  >
+                    {count} เม็ด
+                  </button>
+                ))}
+              </div>
+              <p class="text-xs opacity-40 text-center">
+                สูงสุด {getMaxPlayers(selectedBeanCount())} คน
+                {selectedBeanCount() === 40 ? " 🌟" : ""}
+              </p>
+            </div>
+
             <button
               onClick={handleCreate}
               disabled={loading()}

@@ -70,7 +70,8 @@ const currentTurnPlayer = (): Player | null => {
 const isGameOver = (): boolean => {
   const r = room();
   if (!r) return false;
-  return r.status === "finished" || r.total_clicked >= 20;
+  const total = r.bean_count ?? 20;
+  return r.status === "finished" || r.total_clicked >= total;
 };
 
 /** Number of beans still hidden */
@@ -171,9 +172,11 @@ async function initBoard(roomId: string): Promise<boolean> {
     return false;
   }
 
-  // Pick 20 random beans (with replacement if < 20 unique beans)
+  // Pick N random beans based on room's bean_count
+  const r = room();
+  const beanCount = r?.bean_count ?? 20;
   const picked: Bean[] = [];
-  for (let i = 0; i < 20; i++) {
+  for (let i = 0; i < beanCount; i++) {
     picked.push(beans[Math.floor(Math.random() * beans.length)]);
   }
 
@@ -183,7 +186,7 @@ async function initBoard(roomId: string): Promise<boolean> {
     [picked[i], picked[j]] = [picked[j], picked[i]];
   }
 
-  // Insert 20 rows into game_board
+  // Insert N rows into game_board
   const rows = picked.map((bean: Bean, index: number) => ({
     room_id: roomId,
     slot_index: index,
@@ -213,7 +216,7 @@ async function loadBoard(roomId: string): Promise<boolean> {
     .eq("room_id", roomId)
     .order("slot_index");
 
-  if (err || !data || data.length !== 20) return false;
+  if (err || !data || data.length === 0) return false;
 
   // Map to GameBoardSlotWithBean[]
   const slots: GameBoardSlotWithBean[] = data.map((row: any) => ({
@@ -290,7 +293,8 @@ async function clickBean(slotIndex: number): Promise<void> {
     (a: Player, b: Player) => a.turn_order - b.turn_order,
   );
   const nextTurn = findNextOnlineTurn(r.current_turn, sorted, onlinePlayers());
-  const newStatus = totalClicked >= 20 ? "finished" : "playing";
+  const beanTotal = r.bean_count ?? 20;
+  const newStatus = totalClicked >= beanTotal ? "finished" : "playing";
 
   await supabase
     .from("game_rooms")

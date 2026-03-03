@@ -25,8 +25,13 @@ export function rollTurnOrder(playerCount: number): number[] {
   return order;
 }
 
-/** Minimum / maximum players per room */
+/** Minimum players per room (constant) */
 export const MIN_PLAYERS = 2;
+
+/**
+ * @deprecated Use getMaxPlayers(beanCount) from ~/types/database instead.
+ * Kept for backward-compat; defaults to 4.
+ */
 export const MAX_PLAYERS = 4;
 
 /** Validate room code format */

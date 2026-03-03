@@ -32,14 +32,15 @@ export interface GameRoom {
   players: Player[];
   current_turn: number;
   total_clicked: number;
+  bean_count: number; // 20, 30, 40, or 50
   created_at: string;
 }
 
-/** game_board row — 5×4 grid = 20 slots (0–19) */
+/** game_board row — dynamic grid based on room's bean_count */
 export interface GameBoardSlot {
   id: string;
   room_id: string;
-  slot_index: number; // 0–19
+  slot_index: number;
   bean_id: string;
   is_revealed: boolean;
   revealed_by: string | null;
@@ -71,12 +72,35 @@ export interface Profile {
   created_at: string;
 }
 
-/** Grid config constants */
-export const GRID = {
-  COLS: 5,
-  ROWS: 4,
-  TOTAL: 20,
-} as const;
+/** Available bean count options when creating a room */
+export const BEAN_COUNT_OPTIONS = [20, 30, 40, 50] as const;
+export type BeanCountOption = (typeof BEAN_COUNT_OPTIONS)[number];
+
+/** Grid layout config for each bean count */
+export interface GridConfig {
+  cols: number;
+  rows: number;
+  total: number;
+}
+
+export function getGridConfig(beanCount: number): GridConfig {
+  switch (beanCount) {
+    case 20: return { cols: 5, rows: 4, total: 20 };
+    case 30: return { cols: 6, rows: 5, total: 30 };
+    case 40: return { cols: 8, rows: 5, total: 40 };
+    case 50: return { cols: 10, rows: 5, total: 50 };
+    default: return { cols: 5, rows: 4, total: 20 };
+  }
+}
+
+/** Get max players allowed for a given bean count */
+export function getMaxPlayers(beanCount: number): number {
+  return beanCount === 40 ? 6 : 4;
+}
+
+/** Absolute minimum/maximum player constants */
+export const MIN_PLAYERS = 2;
+export const MAX_PLAYERS_ABSOLUTE = 6;
 
 /** Supabase Realtime broadcast payloads */
 export interface BroadcastPayloads {

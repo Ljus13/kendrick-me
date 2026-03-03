@@ -46,6 +46,7 @@ import {
   resetLeaderboardSaved,
 } from "../stores/leaderboardStore";
 import type { Player, GameBoardSlotWithBean } from "../types/database";
+import { getGridConfig, getMaxPlayers } from "../types/database";
 import ChatPanel from "../components/game/ChatPanel";
 
 export default function Game() {
@@ -98,7 +99,8 @@ export default function Game() {
 
     // Host initializes the board first
     if (isHost()) {
-      setInitMessage("🫘 กำลังสุ่มเยลลี่ 20 เม็ด...");
+      const beanCount = r.bean_count ?? 20;
+      setInitMessage(`🫘 กำลังสุ่มเยลลี่ ${beanCount} เม็ด...`);
       const ok = await initBoard(r.id);
       if (!ok) {
         setInitMessage("❌ สร้างกระดานไม่สำเร็จ");
@@ -214,12 +216,12 @@ export default function Game() {
 
   // ── Player emoji helper ────────────────────────────────────
   function playerEmoji(index: number): string {
-    return ["🧙‍♂️", "🧙‍♀️", "🧝", "🧛"][index] || "🎭";
+    return ["🧙‍♂️", "🧙‍♀️", "🧝", "🧛", "🧝‍♀️", "🧌"][index] || "🎭";
   }
 
   /** Medal for rank */
   function rankMedal(rank: number): string {
-    return ["🥇", "🥈", "🥉", "4️⃣"][rank] || "";
+    return ["🥇", "🥈", "🥉", "4️⃣", "5️⃣", "6️⃣"][rank] || "";
   }
 
   return (
@@ -300,16 +302,23 @@ export default function Game() {
 
             {/* Remaining beans */}
             <div class="text-xs sm:text-sm opacity-50 font-mono">
-              <span class="text-amber-400 font-bold">{unrevealed()}</span>/20
+              <span class="text-amber-400 font-bold">{unrevealed()}</span>/{room()?.bean_count ?? 20}
             </div>
           </div>
         </header>
 
         {/* ── Game Content: Grid + Sidebar ─────────── */}
         <div class="flex-1 flex flex-col lg:flex-row max-w-5xl mx-auto w-full p-2 sm:p-4 gap-3 sm:gap-4">
-          {/* ── 5×4 Grid ─────────────────────────── */}
+          {/* ── Dynamic Grid ───────────────────────── */}
           <div class="flex-1 flex items-center justify-center">
-            <div class="grid grid-cols-5 gap-2 sm:gap-3 w-full max-w-[560px]">
+            <div
+              class="gap-2 sm:gap-3 w-full"
+              style={{
+                display: "grid",
+                "grid-template-columns": `repeat(${(() => { const r = room(); return getGridConfig(r?.bean_count ?? 20).cols; })()}, minmax(0, 1fr))`,
+                "max-width": `${(() => { const r = room(); return getGridConfig(r?.bean_count ?? 20).cols * 112; })()}px`,
+              }}
+            >
               <For each={board}>
                 {(slot: GameBoardSlotWithBean) => (
                   <button
@@ -600,7 +609,7 @@ export default function Game() {
               <div class="text-5xl mb-2">🏁</div>
               <h2 class="text-2xl font-display font-bold text-amber-400">เกมจบแล้ว!</h2>
               <p class="text-sm opacity-50 mt-1">
-                เยลลี่ทั้ง 20 เม็ดถูกเปิดหมดแล้ว
+                เยลลี่ทั้ง {room()?.bean_count ?? 20} เม็ดถูกเปิดหมดแล้ว
               </p>
             </div>
 

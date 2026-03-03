@@ -11,8 +11,8 @@ import {
   rollTurnOrder,
   normalizeRoomCode,
   MIN_PLAYERS,
-  MAX_PLAYERS,
 } from "../lib/roomHelpers";
+import { getMaxPlayers } from "../types/database";
 import type { GameRoom, Player } from "../types/database";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 
@@ -62,7 +62,7 @@ function canStart(): boolean {
 
 // ── Create Room ─────────────────────────────────────────────
 
-async function createRoom(): Promise<string | null> {
+async function createRoom(beanCount: number = 20): Promise<string | null> {
   setLoading(true);
   setError("");
 
@@ -92,6 +92,7 @@ async function createRoom(): Promise<string | null> {
       players: [player],
       current_turn: 0,
       total_clicked: 0,
+      bean_count: beanCount,
     })
     .select()
     .single();
@@ -100,7 +101,7 @@ async function createRoom(): Promise<string | null> {
 
   if (err) {
     // Retry once on code collision
-    if (err.code === "23505") return createRoom();
+    if (err.code === "23505") return createRoom(beanCount);
     setError("สร้างห้องไม่สำเร็จ: " + err.message);
     return null;
   }
@@ -186,10 +187,11 @@ async function joinRoom(rawCode: string): Promise<boolean> {
     return false;
   }
 
-  // Check max players
-  if (r.players.length >= MAX_PLAYERS) {
+  // Check max players (dynamic based on room's bean_count)
+  const maxP = getMaxPlayers(r.bean_count ?? 20);
+  if (r.players.length >= maxP) {
     setLoading(false);
-    setError("ห้องเต็มแล้ว (สูงสุด " + MAX_PLAYERS + " คน)");
+    setError("ห้องเต็มแล้ว (สูงสุด " + maxP + " คน)");
     return false;
   }
 

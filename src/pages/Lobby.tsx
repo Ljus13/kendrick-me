@@ -26,7 +26,8 @@ import {
   cleanup,
   connectionStatus,
 } from "../stores/roomStore";
-import { MIN_PLAYERS, MAX_PLAYERS } from "../lib/roomHelpers";
+import { MIN_PLAYERS } from "../lib/roomHelpers";
+import { getMaxPlayers } from "../types/database";
 
 export default function Lobby() {
   const params = useParams<{ code: string }>();
@@ -102,7 +103,7 @@ export default function Lobby() {
 
   // ── Player status badges ───────────────────────────────────
   function playerEmoji(index: number): string {
-    const emojis = ["🧙‍♂️", "🧙‍♀️", "🧝", "🧛"];
+    const emojis = ["🧙‍♂️", "🧙‍♀️", "🧝", "🧛", "🧝‍♀️", "🧌"];
     return emojis[index] || "🎭";
   }
 
@@ -142,6 +143,11 @@ export default function Lobby() {
           <p class="text-sm opacity-50">
             แชร์รหัสนี้ให้เพื่อนเพื่อเข้าร่วม
           </p>
+          <Show when={room()?.bean_count}>
+            <p class="text-xs opacity-40 mt-1">
+              🫘 เยลลี่ {room()!.bean_count} เม็ด · สูงสุด {getMaxPlayers(room()!.bean_count)} คน
+            </p>
+          </Show>
         </div>
 
         {/* ── Error ────────────────────────────────── */}
@@ -155,7 +161,7 @@ export default function Lobby() {
         <div class="bg-[#151723] rounded-xl border border-[#b1a59a]/10 overflow-hidden">
           <div class="px-4 py-3 border-b border-[#b1a59a]/10 flex items-center justify-between">
             <span class="font-medium">
-              ผู้เล่น ({players.length}/{MAX_PLAYERS})
+              ผู้เล่น ({players.length}/{(() => { const r = room(); return getMaxPlayers(r?.bean_count ?? 20); })()})
             </span>
             <span class="text-xs opacity-50">
               ต้องการอย่างน้อย {MIN_PLAYERS} คน
@@ -204,7 +210,7 @@ export default function Lobby() {
             </For>
 
             {/* Empty slots */}
-            <For each={Array(MAX_PLAYERS - players.length)}>
+            <For each={Array((() => { const r = room(); return getMaxPlayers(r?.bean_count ?? 20); })() - players.length)}>
               {() => (
                 <div class="px-4 py-3 flex items-center gap-3 opacity-20">
                   <span class="text-2xl">👤</span>
@@ -224,7 +230,7 @@ export default function Lobby() {
                 {(player, index) => (
                   <div class="text-center">
                     <div class="text-3xl mb-1">
-                      {["🎲", "🎯", "⚡", "🌟"][diceResults()?.[index()] ?? 0]}
+                      {["🎲", "🎯", "⚡", "🌟", "🔮", "✨"][diceResults()?.[index()] ?? 0]}
                     </div>
                     <p class="text-xs opacity-70">{player.name}</p>
                     <p class="text-sm font-bold">#{(diceResults()?.[index()] ?? 0) + 1}</p>
