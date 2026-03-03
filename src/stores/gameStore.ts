@@ -265,14 +265,14 @@ async function clickBean(slotIndex: number): Promise<void> {
     }),
   );
 
-  // Show popup
+  // Show popup (isOwn = true → eligible for screen shake)
   showRevealPopup({
     slot_index: slotIndex,
     bean_id: bean.id,
     revealed_by: sessionId(),
     flavor: bean.flavor_th || bean.flavor,
     points: bean.points,
-  });
+  }, true);
 
   // ── 2. Update game_board in DB ──
   await supabase
@@ -355,7 +355,7 @@ async function clickBean(slotIndex: number): Promise<void> {
 
 // ── Popup Helper ────────────────────────────────────────────
 
-function showRevealPopup(data: BroadcastPayloads["bean-revealed"]): void {
+function showRevealPopup(data: BroadcastPayloads["bean-revealed"], isOwn = false): void {
   // Legacy single popup (keep for backward compat)
   if (popupTimer) clearTimeout(popupTimer);
   setRevealPopup(data);
@@ -372,8 +372,8 @@ function showRevealPopup(data: BroadcastPayloads["bean-revealed"]): void {
     setRevealPopups((prev) => prev.filter((p) => p._id !== id));
   }, 3000);
 
-  // Trigger screen shake for very negative beans (≤ -3)
-  if (data.points <= -3) {
+  // Trigger screen shake only for the player who clicked — gentle shake
+  if (isOwn && data.points <= -3) {
     triggerScreenShake();
   }
 }
