@@ -95,7 +95,7 @@ export function getGridConfig(beanCount: number): GridConfig {
 
 /** Get max players allowed for a given bean count */
 export function getMaxPlayers(beanCount: number): number {
-  return beanCount === 40 ? 6 : 4;
+  return beanCount >= 40 ? 6 : 4;
 }
 
 /** Absolute minimum/maximum player constants */

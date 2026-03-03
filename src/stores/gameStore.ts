@@ -17,6 +17,7 @@ import type {
 // ── Types ────────────────────────────────────────────────────
 
 type RevealPopupData = BroadcastPayloads["bean-revealed"] | null;
+type RevealPopupItem = BroadcastPayloads["bean-revealed"] & { _id: number };
 type EmoteType = BroadcastPayloads["emote"]["type"];
 type EmoteData = { from: string; fromName: string; type: EmoteType } | null;
 
@@ -32,6 +33,7 @@ export interface ChatMessage {
 
 const [board, setBoard] = createStore<GameBoardSlotWithBean[]>([]);
 const [revealPopup, setRevealPopup] = createSignal<RevealPopupData>(null);
+const [revealPopups, setRevealPopups] = createSignal<RevealPopupItem[]>([]);
 const [gameLoading, setGameLoading] = createSignal(true);
 const [activeEmote, setActiveEmote] = createSignal<EmoteData>(null);
 const [screenShake, setScreenShake] = createSignal(false);
@@ -43,6 +45,7 @@ let gameChannel: ReturnType<typeof supabase.channel> | null = null;
 let popupTimer: ReturnType<typeof setTimeout> | null = null;
 let emoteTimer: ReturnType<typeof setTimeout> | null = null;
 let _gameRoomId: string | null = null;
+let _popupIdCounter = 0;
 
 // ── Derived ──────────────────────────────────────────────────
 
@@ -353,14 +356,21 @@ async function clickBean(slotIndex: number): Promise<void> {
 // ── Popup Helper ────────────────────────────────────────────
 
 function showRevealPopup(data: BroadcastPayloads["bean-revealed"]): void {
-  // Clear previous timer
+  // Legacy single popup (keep for backward compat)
   if (popupTimer) clearTimeout(popupTimer);
-
   setRevealPopup(data);
   popupTimer = setTimeout(() => {
     setRevealPopup(null);
     popupTimer = null;
   }, 2500);
+
+  // Stackable popups — add to list with unique ID
+  const id = ++_popupIdCounter;
+  const item: RevealPopupItem = { ...data, _id: id };
+  setRevealPopups((prev) => [item, ...prev].slice(0, 8)); // max 8 stacked
+  setTimeout(() => {
+    setRevealPopups((prev) => prev.filter((p) => p._id !== id));
+  }, 3000);
 
   // Trigger screen shake for very negative beans (≤ -3)
   if (data.points <= -3) {
@@ -536,6 +546,7 @@ export {
   // State
   board,
   revealPopup,
+  revealPopups,
   gameLoading,
   setGameLoading,
   activeEmote,

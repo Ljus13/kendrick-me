@@ -20,6 +20,7 @@ import type { ConnectionStatus } from "../stores/roomStore";
 import {
   board,
   revealPopup,
+  revealPopups,
   gameLoading,
   setGameLoading,
   isMyTurn,
@@ -519,54 +520,54 @@ export default function Game() {
         }}
       </Show>
 
-      {/* ── Reveal Popup (center overlay) ───────────── */}
-      <Show when={revealPopup()}>
-        {(popup) => (
-          <div class="fixed inset-0 flex items-center justify-center z-50 pointer-events-none">
-            <div
-              class={`bg-[#151723]/95 backdrop-blur-sm border-2 rounded-2xl p-5 sm:p-8
-                text-center shadow-2xl animate-popup-in max-w-xs mx-4
-                ${
-                  popup().points >= 0
-                    ? "border-emerald-500/60 shadow-emerald-500/20"
-                    : "border-red-500/60 shadow-red-500/20"
-                }`}
-            >
-              {/* Big emoji */}
-              <div class="text-5xl sm:text-6xl mb-3">
-                {popup().points >= 0 ? "✨" : "🤢"}
-              </div>
+      {/* ── Stacked Reveal Popups (top) ─────────────── */}
+      <Show when={revealPopups().length > 0}>
+        <div class="fixed top-2 left-1/2 -translate-x-1/2 z-50 pointer-events-none flex flex-col items-center gap-1.5 w-full max-w-sm px-3">
+          <For each={revealPopups()}>
+            {(popup) => {
+              const isPositive = () => popup.points >= 0;
+              const revealerName = () =>
+                popup.revealed_by === sessionId()
+                  ? null
+                  : players.find((p: Player) => p.session_id === popup.revealed_by)?.name ?? "???";
+              return (
+                <div
+                  class={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl border backdrop-blur-md shadow-lg
+                    animate-popup-slide-in
+                    ${
+                      isPositive()
+                        ? "bg-emerald-950/80 border-emerald-500/40 shadow-emerald-500/10"
+                        : "bg-red-950/80 border-red-500/40 shadow-red-500/10"
+                    }`}
+                >
+                  {/* Emoji */}
+                  <span class="text-2xl sm:text-3xl shrink-0">
+                    {isPositive() ? "✨" : "🤢"}
+                  </span>
 
-              {/* Flavor name */}
-              <p class="text-base sm:text-lg font-display font-bold mb-1">
-                {popup().flavor}
-              </p>
+                  {/* Flavor + score */}
+                  <div class="flex-1 min-w-0">
+                    <p class="text-sm font-display font-bold truncate text-[#b1a59a]">
+                      {popup.flavor}
+                    </p>
+                    <Show when={revealerName()}>
+                      <p class="text-[10px] opacity-40 truncate">เปิดโดย {revealerName()}</p>
+                    </Show>
+                  </div>
 
-              {/* Score */}
-              <p
-                class={`text-3xl sm:text-4xl font-bold font-mono animate-score-float ${
-                  popup().points >= 0
-                    ? "text-emerald-400"
-                    : "text-red-400"
-                }`}
-              >
-                {popup().points >= 0 ? "+" : ""}
-                {popup().points} แต้ม
-              </p>
-
-              {/* Who revealed (for other players) */}
-              <Show when={popup().revealed_by !== sessionId()}>
-                <p class="text-xs opacity-40 mt-3">
-                  เปิดโดย{" "}
-                  {players.find(
-                    (p: Player) =>
-                      p.session_id === popup().revealed_by,
-                  )?.name ?? "???"}
-                </p>
-              </Show>
-            </div>
-          </div>
-        )}
+                  {/* Points */}
+                  <span
+                    class={`text-lg sm:text-xl font-bold font-mono shrink-0 ${
+                      isPositive() ? "text-emerald-400" : "text-red-400"
+                    }`}
+                  >
+                    {isPositive() ? "+" : ""}{popup.points}
+                  </span>
+                </div>
+              );
+            }}
+          </For>
+        </div>
       </Show>
 
       {/* ── Disconnect Modal (only 1 player left) ──── */}
