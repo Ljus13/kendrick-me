@@ -340,21 +340,23 @@ export default function Game() {
                   >
                     {/* Hidden state — global image for all unrevealed beans */}
                     <Show when={!slot.is_revealed}>
-                      <div class="flex flex-col items-center justify-center w-full h-full p-1 bean-shimmer">
-                        <Show
-                          when={globalHiddenUrl}
-                          fallback={
-                            <span class="text-2xl sm:text-4xl select-none">🫘</span>
-                          }
-                        >
-                          <img
-                            src={globalHiddenUrl}
-                            alt="hidden bean"
-                            class="w-full h-full object-contain"
-                            draggable={false}
-                          />
-                        </Show>
-                        <span class="text-[9px] sm:text-[10px] opacity-20 mt-0.5 font-mono">
+                      <div class="flex flex-col items-center w-full h-full p-1 pb-0.5 bean-shimmer overflow-hidden">
+                        <div class="flex-1 min-h-0 w-full flex items-center justify-center">
+                          <Show
+                            when={globalHiddenUrl}
+                            fallback={
+                              <span class="text-2xl sm:text-4xl select-none">🫘</span>
+                            }
+                          >
+                            <img
+                              src={globalHiddenUrl}
+                              alt="hidden bean"
+                              class="max-w-full max-h-full object-contain"
+                              draggable={false}
+                            />
+                          </Show>
+                        </div>
+                        <span class="shrink-0 text-[9px] sm:text-[10px] opacity-20 leading-none py-0.5 font-mono">
                           #{slot.slot_index + 1}
                         </span>
                       </div>
@@ -362,24 +364,28 @@ export default function Game() {
 
                     {/* Revealed state */}
                     <Show when={slot.is_revealed}>
-                      <div class="flex flex-col items-center justify-center w-full h-full p-1 animate-bean-flip">
-                        <Show
-                          when={slot.bean.img_revealed}
-                          fallback={
-                            <span class="text-3xl sm:text-4xl select-none">
-                              ✨
-                            </span>
-                          }
-                        >
-                          <img
-                            src={slot.bean.img_revealed!}
-                            alt={slot.bean.flavor}
-                            class="w-full h-full object-contain"
-                            draggable={false}
-                          />
-                        </Show>
+                      <div class="flex flex-col items-center w-full h-full p-1 pb-0.5 animate-bean-flip overflow-hidden">
+                        {/* Image fills remaining space, never overflows */}
+                        <div class="flex-1 min-h-0 w-full flex items-center justify-center">
+                          <Show
+                            when={slot.bean.img_revealed}
+                            fallback={
+                              <span class="text-3xl sm:text-4xl select-none">
+                                ✨
+                              </span>
+                            }
+                          >
+                            <img
+                              src={slot.bean.img_revealed!}
+                              alt={slot.bean.flavor}
+                              class="max-w-full max-h-full object-contain"
+                              draggable={false}
+                            />
+                          </Show>
+                        </div>
+                        {/* Score — fixed height, never pushed out */}
                         <span
-                          class={`text-[10px] sm:text-xs font-bold mt-0.5 ${
+                          class={`shrink-0 text-[9px] sm:text-[11px] font-bold leading-none py-0.5 ${
                             slot.bean.points >= 0
                               ? "text-emerald-400"
                               : "text-red-400"
