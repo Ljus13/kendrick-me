@@ -16,8 +16,8 @@
 | Table | Key Columns |
 |---|---|
 | `beans_master` | `id`, `flavor`, `points`, `img_hidden`, `img_revealed` |
-| `game_rooms` | `id`, `room_code`, `status`, `players (JSONB)`, `current_turn`, `total_clicked` |
-| `game_board` | `room_id`, `slot_index` (0–19), `bean_id`, `is_revealed` |
+| `game_rooms` | `id`, `room_code`, `status`, `players (JSONB)`, `current_turn`, `total_clicked`, `bean_count` |
+| `game_board` | `room_id`, `slot_index` (0–49), `bean_id`, `is_revealed` |
 | `global_leaderboard` | `id`, `player_name` (unique), `total_score`, `games_played`, `best_score`, `last_played` |
 | `profiles` | `id` (FK auth.users), `username`, `display_name`, `avatar_url`, `role` |
 
@@ -142,3 +142,7 @@ Phase 7 → Testing & Deploy             (Ship it)           ✅ Done
 | 2026-03-02 | Phase 5: Game End & Leaderboard — leaderboardStore (auto-save ranked scores), Stats page (top scores + recent players), footer link |
 | 2026-03-02 | Phase 6: Effects & Polish — Emote system (4 reactions via Broadcast), screen shake on bad beans (≤-3), bean flip 3D animation, score float-up, HP font (Cinzel + Crimson Text), parchment bg texture, shimmer on hidden beans, glow pulse, responsive mobile layout, improved loading states |
 | 2026-03-02 | Phase 7: Testing & Deploy — Connection status banner (connected/reconnecting/disconnected), auto-reconnect on visibility change & network recovery, room expiry guard (2h max), Vercel deploy config (`vercel.json` + SPA rewrites), env var docs in `.env.example`, CSS @import fix |
+| 2026-03-03 | Feature: Configurable bean count per room — เลือก 20/30/40/50 เม็ดตอนสร้างห้อง, dynamic grid layout (5×4 / 6×5 / 8×5 / 10×5), max players 4 คน (20/30) หรือ 6 คน (40/50), migration `005_add_bean_count.sql` |
+| 2026-03-03 | Feature: Stackable reveal popups — popups ซ้อนกันที่ด้านบน (max 8), auto-remove อิสระทีละอัน (3s), compact horizontal layout |
+| 2026-03-03 | Fix: DB constraint `game_board.slot_index` ขยาย 0–19 → 0–49 via `006_expand_slot_index.sql` |
+| 2026-03-03 | Fix: Screen shake — เบาลง (±2px, 0.4s) และเขย่าเฉพาะผู้เล่นที่กดโดน ไม่กระทบคนอื่น |

@@ -8,7 +8,7 @@
   <img src="https://img.shields.io/badge/Deploy-Vercel-black?logo=vercel" alt="Vercel" />
 </p>
 
-> เกม Harry Potter มัลติเพลเยอร์แบบเรียลไทม์   สุ่มเยลลี่บีน 20 เม็ด — รสชาติดีได้แต้ม รสชาติแย่โดนหักแต้ม 🧙‍♂️
+> เกม Harry Potter มัลติเพลเยอร์แบบเรียลไทม์   สุ่มเยลลี่บีน 20–50 เม็ด — รสชาติดีได้แต้ม รสชาติแย่โดนหักแต้ม 🧙‍♂️
 
 ---
 
@@ -16,14 +16,16 @@
 
 | Category | Details |
 |---|---|
-| **Multiplayer 2-4 คน** | สร้างห้อง / เข้าห้องด้วยรหัส `BB-XXXX` พร้อมระบบ Ready + Dice Roll สุ่มลำดับ |
+| **Multiplayer 2–6 คน** | สร้างห้อง / เข้าห้องด้วยรหัส `BB-XXXX` พร้อมระบบ Ready + Dice Roll สุ่มลำดับ |
+| **Configurable Board** | เลือกขนาดกระดาน 20 / 30 / 40 / 50 เม็ด — ห้อง 40+ รองรับผู้เล่นสูงสุด 6 คน |
+| **Dynamic Grid** | 20→5×4, 30→6×5, 40→8×5, 50→10×5 — Grid ปรับอัตโนมัติตามขนาดห้อง |
 | **Realtime Sync** | Supabase Presence + Broadcast — ทุกคนเห็นบอร์ดเดียวกันแบบ real-time |
 | **No-Auth Players** | ไม่ต้องสมัครสมาชิก ใช้ Nickname + Session ID เล่นได้ทันที |
 | **Admin CMS** | จัดการรสชาติ เพิ่ม/ลบ/แก้ไข อัปโหลดรูป ผ่าน Dashboard (Supabase Auth) |
 | **Global Leaderboard** | บันทึกสถิติอัตโนมัติ — Top Scores, Recent Players |
 | **Connection Management** | ตรวจจับ IP ซ้ำ, ชื่อซ้ำ, ข้ามตาคนที่หลุด, โอนสิทธิ์หัวห้องอัตโนมัติ |
 | **In-Game Chat** | แชทในเกมแบบ real-time ผ่าน Broadcast |
-| **Emotes + Effects** | รีแอค 4 แบบ, Screen Shake, 3D Bean Flip Animation |
+| **Emotes + Effects** | รีแอค 4 แบบ, Screen Shake (เฉพาะคนกด), Stackable Reveal Popups, 3D Bean Flip |
 | **Harry Potter Theme** | สี `#10141d` / `#151723` / `#b1a59a` + ฟอนต์ Cinzel & Kanit |
 | **Responsive** | เล่นได้ทั้ง Desktop และ Mobile |
 
@@ -89,10 +91,12 @@ Fonts       → Cinzel (English display) + Kanit (Thai body)
 │       └── database.ts          # TypeScript interfaces for all tables
 │
 └── supabase/
-    ├── 001_schema_and_rls.sql   # Tables + RLS policies + Storage bucket
-    ├── 002_seed_beans.sql       # 20 bean flavors seed data
-    ├── 003_enable_realtime.sql  # Enable Realtime on tables
-    └── 004_fix_delete_rls.sql   # DELETE policy for game cleanup
+    ├── 001_schema_and_rls.sql       # Tables + RLS policies + Storage bucket
+    ├── 002_seed_beans.sql           # 20 bean flavors seed data
+    ├── 003_enable_realtime.sql      # Enable Realtime on tables
+    ├── 004_fix_delete_rls.sql       # DELETE policy for game cleanup
+    ├── 005_add_bean_count.sql       # bean_count column (20/30/40/50) in game_rooms
+    └── 006_expand_slot_index.sql    # Expand slot_index constraint to 0–49
 ```
 
 ---
@@ -119,10 +123,12 @@ npm install
 2. ไปที่ **SQL Editor** แล้วรันไฟล์ SQL ตามลำดับ:
 
 ```
-supabase/001_schema_and_rls.sql   ← สร้าง tables + RLS + storage bucket
-supabase/002_seed_beans.sql       ← เพิ่มเยลลี่ 20 รสชาติ
-supabase/003_enable_realtime.sql  ← เปิด Realtime สำหรับ game tables
-supabase/004_fix_delete_rls.sql   ← เพิ่ม DELETE policy
+supabase/001_schema_and_rls.sql       ← สร้าง tables + RLS + storage bucket
+supabase/002_seed_beans.sql           ← เพิ่มเยลลี่ 20 รสชาติ
+supabase/003_enable_realtime.sql      ← เปิด Realtime สำหรับ game tables
+supabase/004_fix_delete_rls.sql       ← เพิ่ม DELETE policy
+supabase/005_add_bean_count.sql       ← เพิ่ม bean_count column (20/30/40/50)
+supabase/006_expand_slot_index.sql    ← ขยาย slot_index constraint เป็น 0–49
 ```
 
 3. คัดลอก **Project URL** และ **anon public key** จาก Settings → API
@@ -160,11 +166,12 @@ npm run dev
 ## 🎮 How to Play
 
 1. **กรอกชื่อ** — ตั้งชื่อเล่นได้เลย ไม่ต้องสมัคร
-2. **สร้างห้อง** หรือ **เข้าห้อง** ด้วยรหัส `BB-XXXX`
-3. **รอผู้เล่น** 2-4 คน กด Ready ทุกคน
-4. **ทอยลูกเต๋า** สุ่มลำดับเล่น
-5. **เลือกเยลลี่** ผลัดกันเลือก 20 เม็ด — รสดีได้แต้ม รสแย่โดนหัก!
-6. **จบเกม** ดูอันดับ + บันทึก Leaderboard อัตโนมัติ
+2. **สร้างห้อง** — เลือกขนาดกระดาน 20 / 30 / 40 / 50 เม็ด
+3. **เข้าห้อง** ด้วยรหัส `BB-XXXX` หรือรอเพื่อนเข้ามา
+4. **รอผู้เล่น** 2–4 คน (ห้อง 40+ รับ 2–6 คน) กด Ready ทุกคน
+5. **ทอยลูกเต๋า** สุ่มลำดับเล่น
+6. **เลือกเยลลี่** ผลัดกันเลือก — รสดีได้แต้ม รสแย่โดนหัก!
+7. **จบเกม** ดูอันดับ + บันทึก Leaderboard อัตโนมัติ
 
 ---
 
@@ -190,12 +197,14 @@ npm run dev
 │  beans_master    │     │   game_rooms     │     │    game_board       │
 ├─────────────────┤     ├──────────────────┤     ├─────────────────────┤
 │ id (uuid)       │     │ id (uuid)        │◄────│ room_id (fk)        │
-│ flavor          │◄────│ players (jsonb)  │     │ slot_index (0-19)   │
+│ flavor          │◄────│ players (jsonb)  │     │ slot_index (0-49)   │
 │ flavor_th       │     │ room_code        │     │ bean_id (fk)        │
 │ points          │     │ status           │     │ is_revealed         │
 │ img_hidden      │     │ current_turn     │     │ revealed_by         │
 │ img_revealed    │     │ total_clicked    │     └─────────────────────┘
-└─────────────────┘     └──────────────────┘
+└─────────────────┘     │ bean_count       │
+                        │ (20/30/40/50)    │
+                        └──────────────────┘
                                                   ┌─────────────────────┐
 ┌─────────────────┐     ┌──────────────────┐     │    profiles          │
 │ global_          │     │ supabase storage │     ├─────────────────────┤
