@@ -63,7 +63,7 @@ export default function FileUploader(props: Props) {
           <img
             src={preview()!}
             alt={props.label}
-            class="w-16 h-16 rounded-lg object-cover border border-[#b1a59a]/10"
+            class="w-16 h-16 rounded-lg object-contain bg-[#10141d] border border-[#b1a59a]/10"
           />
         </Show>
 

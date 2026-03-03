@@ -6,6 +6,7 @@ import { supabase } from "../../lib/supabase";
 import type { Bean, GameRoom } from "../../types/database";
 import BeanTable from "../../components/admin/BeanTable";
 import BeanForm from "../../components/admin/BeanForm";
+import GlobalHiddenImageUploader from "../../components/admin/GlobalHiddenImageUploader";
 import StatsOverview from "../../components/admin/StatsOverview";
 import Modal from "../../components/ui/Modal";
 import type { ModalConfig } from "../../components/ui/Modal";
@@ -212,6 +213,9 @@ export default function AdminDashboard() {
               + เพิ่มรสชาติใหม่
             </button>
           </div>
+
+          {/* Global hidden image */}
+          <GlobalHiddenImageUploader />
 
           {/* Table */}
           <Show

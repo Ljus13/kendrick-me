@@ -49,6 +49,7 @@ import {
 import type { Player, GameBoardSlotWithBean } from "../types/database";
 import { getGridConfig, getMaxPlayers } from "../types/database";
 import ChatPanel from "../components/game/ChatPanel";
+import { getGlobalHiddenUrl } from "../components/admin/GlobalHiddenImageUploader";
 
 export default function Game() {
   const params = useParams<{ code: string }>();
@@ -58,6 +59,8 @@ export default function Game() {
   const [chatOpen, setChatOpen] = createSignal(false);
   const [showDisconnectModal, setShowDisconnectModal] = createSignal(false);
   const [hostCountdown, setHostCountdown] = createSignal("");
+  // Global hidden image — same URL for every unrevealed bean
+  const globalHiddenUrl = getGlobalHiddenUrl();
 
   /** Deterministic "active host": first online player in turn order */
   const isActiveHost = (): boolean => {
@@ -335,12 +338,22 @@ export default function Game() {
                             : "border-[#b1a59a]/10 bg-[#151723] cursor-not-allowed opacity-60"
                       }`}
                   >
-                    {/* Hidden state — all beans show the same mystery image */}
+                    {/* Hidden state — global image for all unrevealed beans */}
                     <Show when={!slot.is_revealed}>
                       <div class="flex flex-col items-center justify-center w-full h-full p-1 bean-shimmer">
-                        <span class="text-2xl sm:text-4xl select-none">
-                          🫘
-                        </span>
+                        <Show
+                          when={globalHiddenUrl}
+                          fallback={
+                            <span class="text-2xl sm:text-4xl select-none">🫘</span>
+                          }
+                        >
+                          <img
+                            src={globalHiddenUrl}
+                            alt="hidden bean"
+                            class="w-full h-full object-contain"
+                            draggable={false}
+                          />
+                        </Show>
                         <span class="text-[9px] sm:text-[10px] opacity-20 mt-0.5 font-mono">
                           #{slot.slot_index + 1}
                         </span>

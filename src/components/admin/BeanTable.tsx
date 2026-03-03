@@ -24,19 +24,24 @@ export default function BeanTable(props: Props) {
           <For each={props.beans}>
             {(bean) => (
               <tr class="border-t border-[#b1a59a]/5 hover:bg-[#151723]/60 transition-colors">
-                {/* Thumbnail */}
+                {/* Thumbnail — hidden=global icon, revealed=per-bean */}
                 <td class="px-4 py-3">
                   <div class="flex gap-2 items-center">
-                    {/* Hidden: always same mystery image */}
-                    <div class="w-10 h-10 rounded bg-[#151723] border border-[#b1a59a]/10 flex items-center justify-center text-xl" title="รูปก่อนเปิด (เหมือนกันทุกเม็ด)">
-                      🫘
+                    {/* Hidden: global image, show lock icon placeholder */}
+                    <div
+                      class="w-10 h-10 rounded bg-[#10141d] border border-[#b1a59a]/10 flex items-center justify-center text-lg"
+                      title="รูป Global (เหมือนกันทุกเม็ด)"
+                    >
+                      🔒
                     </div>
                     {/* Revealed: per-bean */}
                     <Show
                       when={bean.img_revealed}
-                      fallback={<div class="w-10 h-10 rounded bg-[#151723] flex items-center justify-center text-xs text-[#b1a59a]/30">?</div>}
+                      fallback={<div class="w-10 h-10 rounded bg-[#151723] border border-dashed border-[#b1a59a]/15 flex items-center justify-center text-xs text-[#b1a59a]/30">?</div>}
                     >
-                      <img src={bean.img_revealed!} alt="revealed" class="w-10 h-10 rounded object-cover" />
+                      <div class="w-10 h-10 rounded bg-[#10141d] border border-[#b1a59a]/10 overflow-hidden flex items-center justify-center">
+                        <img src={bean.img_revealed!} alt="revealed" class="w-full h-full object-contain" />
+                      </div>
                     </Show>
                   </div>
                 </td>

@@ -104,15 +104,22 @@ export default function BeanForm(props: Props) {
           />
         </div>
 
-        {/* Row 3: Image upload - Revealed only (hidden uses shared mystery image) */}
-        <div class="space-y-1">
-          <div class="flex items-center gap-2 mb-1">
-            <span class="text-xs text-[#b1a59a]/40">รูปก่อนเปิด:</span>
-            <span class="text-lg">🫘</span>
-            <span class="text-xs text-[#b1a59a]/40">(ใช้รูปเดียวกันทุกเม็ด — ไม่ต้องอัพโหลด)</span>
+        {/* Row 3: Images — hidden is global (see admin panel), revealed is per-bean */}
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Hidden: info-only, managed globally */}
+          <div class="space-y-2">
+            <label class="text-sm text-[#b1a59a]/70">รูปก่อนเปิด (Hidden) 🔒</label>
+            <div class="flex items-center gap-3 px-3 py-2 rounded-lg bg-[#10141d] border border-[#b1a59a]/10">
+              <span class="text-2xl">🔒</span>
+              <span class="text-xs text-[#b1a59a]/40 leading-relaxed">
+                ใช้รูป Global เดียวกันทุกเม็ด<br />
+                เปลี่ยนได้ในหน้า Admin → รูปปกเยลลี่
+              </span>
+            </div>
           </div>
+
           <FileUploader
-            label="รูปหลังเปิด (Revealed)"
+            label="รูปหลังเปิด (Revealed) ✨"
             folder="revealed"
             currentUrl={imgRevealed()}
             onUploaded={setImgRevealed}
