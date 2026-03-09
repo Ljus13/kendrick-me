@@ -10,25 +10,29 @@ import { supabase } from "../lib/supabase";
 // ╔══════════════════════════════════════════════════════════╗
 // ║  CONFIGURATION — ✏️ Edit once, applies everywhere        ║
 // ╠══════════════════════════════════════════════════════════╣
-// ║  Change names & colours here — all UI updates auto       ║
+// ║  Change names, colours & default avatars here            ║
 // ╚══════════════════════════════════════════════════════════╝
-const LEFT_NAME   = "Kendrick";      // blue person's display name
-const LEFT_COLOR  = "#4BA3C3";       // avatar circle & name text
-const LEFT_BG     = "#E8F4FD";       // message bubble background
-const LEFT_TEXT   = "#1A6A8A";       // message body text colour
+const LEFT_NAME         = "German Schneider";  // blue person's display name
+const LEFT_COLOR        = "#4BA3C3";           // avatar circle & name text
+const LEFT_BG           = "#E8F4FD";           // message bubble background
+const LEFT_TEXT         = "#1A6A8A";           // message body text colour
+const LEFT_AVATAR_DEFAULT  = "";               // default avatar URL (empty = initials)
 
-const RIGHT_NAME  = "Mary";          // pink person's display name
-const RIGHT_COLOR = "#E87BA3";       // avatar circle & name text
-const RIGHT_BG    = "#FDEEF6";       // message bubble background
-const RIGHT_TEXT  = "#A33360";       // message body text colour
+const RIGHT_NAME        = "Cecilia Rosa";       // pink person's display name
+const RIGHT_COLOR       = "#E87BA3";           // avatar circle & name text
+const RIGHT_BG          = "#FDEEF6";           // message bubble background
+const RIGHT_TEXT        = "#A33360";           // message body text colour
+const RIGHT_AVATAR_DEFAULT = "";               // default avatar URL (empty = initials)
 // ╚══════════════════════════════════════════════════════════╝
+
+
 
 const MISSIONS = [
   { id: 1, label: "First Move" },
   { id: 2, label: "First Meal" },
   { id: 3, label: "Outside Day" },
   { id: 4, label: "Home Refill" },
-  { id: 5, label: "Date Night : ออกไปทำ" },
+  { id: 5, label: "Date Night" },
 ] as const;
 
 // ── Types ─────────────────────────────────────────────────────
@@ -62,7 +66,65 @@ export default function MarryMeMary() {
   const [saving, setSaving] = createSignal(false);
   const [appError, setAppError] = createSignal<string | null>(null);
 
-  // Inject Google Fonts once
+  // ── Avatar URL state (persisted in Supabase wedding_avatars) ───
+  const [leftAvatar, setLeftAvatar] = createSignal<string>(LEFT_AVATAR_DEFAULT);
+  const [rightAvatar, setRightAvatar] = createSignal<string>(RIGHT_AVATAR_DEFAULT);
+  const [avatarSaving, setAvatarSaving] = createSignal(false);
+  // editing avatar: null = none, 'left' | 'right' = open
+  const [editingAvatar, setEditingAvatar] = createSignal<"left" | "right" | null>(null);
+  const [avatarInput, setAvatarInput] = createSignal("");
+
+  async function fetchAvatars() {
+    const { data } = await supabase.from("wedding_avatars").select("side, avatar_url");
+    if (data) {
+      for (const row of data) {
+        if (row.side === "left")  setLeftAvatar(row.avatar_url ?? "");
+        if (row.side === "right") setRightAvatar(row.avatar_url ?? "");
+      }
+    }
+  }
+
+  function openAvatarEdit(side: "left" | "right") {
+    setAvatarInput(side === "left" ? leftAvatar() : rightAvatar());
+    setEditingAvatar(side);
+  }
+  async function saveAvatar() {
+    const url = avatarInput().trim();
+    const side = editingAvatar();
+    if (!side) return;
+    setAvatarSaving(true);
+    const { error } = await supabase
+      .from("wedding_avatars")
+      .update({ avatar_url: url, updated_at: new Date().toISOString() })
+      .eq("side", side);
+    if (!error) {
+      if (side === "left") setLeftAvatar(url);
+      else setRightAvatar(url);
+      setEditingAvatar(null);
+      setAvatarInput("");
+    } else {
+      setAppError("บันทึกรูปไม่สำเร็จ: " + error.message);
+    }
+    setAvatarSaving(false);
+  }
+  async function clearAvatar(side: "left" | "right") {
+    setAvatarSaving(true);
+    const { error } = await supabase
+      .from("wedding_avatars")
+      .update({ avatar_url: "", updated_at: new Date().toISOString() })
+      .eq("side", side);
+    if (!error) {
+      if (side === "left") setLeftAvatar("");
+      else setRightAvatar("");
+      setEditingAvatar(null);
+      setAvatarInput("");
+    } else {
+      setAppError("ลบรูปไม่สำเร็จ: " + error.message);
+    }
+    setAvatarSaving(false);
+  }
+
+  // Inject Google Fonts + load avatars once
   onMount(() => {
     if (!document.querySelector("#mmm-fonts")) {
       const link = document.createElement("link");
@@ -71,6 +133,7 @@ export default function MarryMeMary() {
       link.href = "https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&family=Nunito:wght@400;500;600;700&display=swap";
       document.head.appendChild(link);
     }
+    fetchAvatars();
   });
 
   // ── Data fetching ──────────────────────────────────────────
@@ -180,14 +243,29 @@ export default function MarryMeMary() {
   const Avatar = (props: { side: "left" | "right" }) => {
     const color = props.side === "left" ? LEFT_COLOR : RIGHT_COLOR;
     const name  = props.side === "left" ? LEFT_NAME  : RIGHT_NAME;
+    const url   = () => props.side === "left" ? leftAvatar() : rightAvatar();
     return (
-      <div
-        class="w-11 h-11 rounded-full flex-shrink-0 flex items-center justify-center text-white text-xs font-bold shadow-md select-none"
-        style={{ background: color }}
-        title={name}
+      <Show
+        when={url()}
+        fallback={
+          <div
+            class="w-11 h-11 rounded-full flex-shrink-0 flex items-center justify-center text-white text-xs font-bold shadow-md select-none"
+            style={{ background: color }}
+            title={name}
+          >
+            {initials(name)}
+          </div>
+        }
       >
-        {initials(name)}
-      </div>
+        <img
+          src={url()}
+          alt={name}
+          title={name}
+          class="w-11 h-11 rounded-full flex-shrink-0 object-cover shadow-md select-none"
+          style={{ border: `2px solid ${color}` }}
+          onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
+        />
+      </Show>
     );
   };
 
@@ -329,19 +407,142 @@ export default function MarryMeMary() {
           border-color: #E87BA3 !important;
           color: #E87BA3 !important;
         }
+
+        .mmm-avatar-wrap { position: relative; display: inline-flex; cursor: pointer; }
+        .mmm-avatar-wrap:hover .mmm-avatar-edit-badge { opacity: 1; }
+        .mmm-avatar-edit-badge {
+          position: absolute; inset: 0; border-radius: 9999px;
+          background: rgba(0,0,0,0.45);
+          display: flex; align-items: center; justify-content: center;
+          font-size: 13px; color: #fff; opacity: 0;
+          transition: opacity 0.2s ease;
+        }
+
+        .mmm-modal-overlay {
+          position: fixed; inset: 0; z-index: 50;
+          background: rgba(0,0,0,0.35);
+          display: flex; align-items: center; justify-content: center;
+          padding: 16px;
+          animation: mmm-fadein 0.2s ease;
+        }
+        .mmm-modal {
+          background: white; border-radius: 20px;
+          padding: 24px; width: 100%; max-width: 380px;
+          box-shadow: 0 20px 60px rgba(0,0,0,0.18);
+        }
       `} />
+
+      {/* ── Avatar edit modal ───────────────────────────────── */}
+      <Show when={editingAvatar() !== null}>
+        <div class="mmm-modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) setEditingAvatar(null); }}>
+          <div class="mmm-modal">
+            <h2 class="font-bold mb-1" style={{ "font-family": "'Cormorant Garamond', serif", "font-size": "1.2rem",
+              color: editingAvatar() === "left" ? LEFT_COLOR : RIGHT_COLOR
+            }}>
+              แก้ไขรูป {editingAvatar() === "left" ? LEFT_NAME : RIGHT_NAME}
+            </h2>
+            <p class="text-xs text-gray-400 mb-4">วางลิงก์รูปภาพ (URL) — จะใช้เหมือนกันทุกภารกิจ</p>
+
+            {/* Preview */}
+            <Show when={avatarInput().trim()}>
+              <div class="flex justify-center mb-4">
+                <img
+                  src={avatarInput().trim()}
+                  alt="preview"
+                  class="w-20 h-20 rounded-full object-cover shadow-md"
+                  style={{ border: `3px solid ${editingAvatar() === "left" ? LEFT_COLOR : RIGHT_COLOR}` }}
+                  onError={(e) => { (e.currentTarget as HTMLImageElement).style.opacity = "0.3"; }}
+                />
+              </div>
+            </Show>
+
+            <input
+              type="url"
+              class="w-full rounded-xl border-2 px-3 py-2 text-sm outline-none mb-4"
+              style={{ "border-color": editingAvatar() === "left" ? "#B8DCEF" : "#F0B8D4" }}
+              placeholder="https://example.com/photo.jpg"
+              value={avatarInput()}
+              onInput={(e) => setAvatarInput(e.currentTarget.value)}
+            />
+
+            <div class="flex gap-2">
+              <button
+                onClick={saveAvatar}
+                disabled={avatarSaving()}
+                class="flex-1 py-2 rounded-full text-sm font-semibold text-white disabled:opacity-50"
+                style={{ background: editingAvatar() === "left" ? LEFT_COLOR : RIGHT_COLOR }}
+              >
+                {avatarSaving() ? "กำลังบันทึก..." : "บันทึก"}
+              </button>
+              <button
+                onClick={() => clearAvatar(editingAvatar()!)}
+                class="py-2 px-4 rounded-full text-sm font-semibold bg-gray-100 text-gray-500 hover:bg-gray-200"
+                title="ลบรูป (ใช้ตัวอักษรแทน)"
+              >
+                ลบรูป
+              </button>
+              <button
+                onClick={() => setEditingAvatar(null)}
+                class="py-2 px-3 rounded-full text-sm bg-gray-100 text-gray-400 hover:bg-gray-200"
+              >
+                ✕
+              </button>
+            </div>
+          </div>
+        </div>
+      </Show>
 
       {/* ── Header ─────────────────────────────────────────── */}
       <header
         class="px-5 py-4 flex items-center justify-between gap-3 rounded-b-3xl shadow-lg flex-wrap"
         style={{ background: "linear-gradient(135deg, #2A2A2A 0%, #1A2030 100%)" }}
       >
-        <h1
-          class="text-white font-bold text-lg sm:text-xl tracking-wide"
-          style={{ "font-family": "'Cormorant Garamond', serif", "font-size": "clamp(1.1rem, 4vw, 1.4rem)" }}
-        >
-          💍 Marry Me, Mary!
-        </h1>
+        {/* Left: title + avatars */}
+        <div class="flex items-center gap-3">
+          <h1
+            class="text-white font-bold tracking-wide"
+            style={{ "font-family": "'Cormorant Garamond', serif", "font-size": "clamp(1rem, 4vw, 1.35rem)" }}
+          >
+            💍 Marry Me, Mary!
+          </h1>
+
+          {/* Avatar edit shortcuts */}
+          <div class="flex items-center gap-1.5 ml-1">
+            {/* Left avatar */}
+            <div class="mmm-avatar-wrap" onClick={() => openAvatarEdit("left")} title={`แก้ไขรูป ${LEFT_NAME}`}>
+              <Show
+                when={leftAvatar()}
+                fallback={
+                  <div class="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold"
+                    style={{ background: LEFT_COLOR }}>
+                    {initials(LEFT_NAME)}
+                  </div>
+                }
+              >
+                <img src={leftAvatar()} alt={LEFT_NAME} class="w-8 h-8 rounded-full object-cover"
+                  style={{ border: `2px solid ${LEFT_COLOR}` }} />
+              </Show>
+              <span class="mmm-avatar-edit-badge">✏️</span>
+            </div>
+
+            {/* Right avatar */}
+            <div class="mmm-avatar-wrap" onClick={() => openAvatarEdit("right")} title={`แก้ไขรูป ${RIGHT_NAME}`}>
+              <Show
+                when={rightAvatar()}
+                fallback={
+                  <div class="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold"
+                    style={{ background: RIGHT_COLOR }}>
+                    {initials(RIGHT_NAME)}
+                  </div>
+                }
+              >
+                <img src={rightAvatar()} alt={RIGHT_NAME} class="w-8 h-8 rounded-full object-cover"
+                  style={{ border: `2px solid ${RIGHT_COLOR}` }} />
+              </Show>
+              <span class="mmm-avatar-edit-badge">✏️</span>
+            </div>
+          </div>
+        </div>
 
         <select
           class="mmm-select bg-sky-100 text-sky-700 font-semibold rounded-2xl px-5 py-2.5 text-sm sm:text-base border-2 border-sky-200 cursor-pointer"
