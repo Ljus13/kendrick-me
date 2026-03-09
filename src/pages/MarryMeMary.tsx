@@ -44,6 +44,7 @@ interface ChatMsg {
   pair_index: number;
   side: "left" | "right";
   message: string;
+  note_url: string;
   created_at: string;
   updated_at: string;
 }
@@ -65,6 +66,7 @@ export default function MarryMeMary() {
   const [loading, setLoading] = createSignal(false);
   const [editingId, setEditingId] = createSignal<string | null>(null);
   const [editText, setEditText] = createSignal("");
+  const [editUrl, setEditUrl] = createSignal("");
   const [saving, setSaving] = createSignal(false);
   const [appError, setAppError] = createSignal<string | null>(null);
   const [deleteTarget, setDeleteTarget] = createSignal<{ id: string; displayName: string } | null>(null);
@@ -254,8 +256,8 @@ export default function MarryMeMary() {
     const { data, error } = await supabase
       .from("wedding_chat_messages")
       .insert([
-        { mission_id: mid, pair_index: nextIdx, side: "left",  message: "" },
-        { mission_id: mid, pair_index: nextIdx, side: "right", message: "" },
+        { mission_id: mid, pair_index: nextIdx, side: "left",  message: "", note_url: "" },
+        { mission_id: mid, pair_index: nextIdx, side: "right", message: "", note_url: "" },
       ])
       .select();
 
@@ -284,6 +286,7 @@ export default function MarryMeMary() {
   function startEdit(msg: ChatMsg) {
     setEditingId(msg.id);
     setEditText(msg.message);
+    setEditUrl(msg.note_url ?? "");
     broadcastTyping(msg.id);
   }
 
@@ -291,28 +294,37 @@ export default function MarryMeMary() {
     broadcastTyping(null);
     setEditingId(null);
     setEditText("");
+    setEditUrl("");
   }
 
   async function saveEdit(id: string) {
     const text = editText().trim();
+    const url = editUrl().trim();
     if (text.length === 0) { setAppError("กรุณากรอกข้อความก่อนบันทึก"); return; }
     if (text.length > 5000) { setAppError("ข้อความยาวเกิน 5,000 ตัวอักษร"); return; }
+    if (url.length > 2000) { setAppError("URL ยาวเกิน 2,000 ตัวอักษร"); return; }
 
     setSaving(true);
     const { error } = await supabase
       .from("wedding_chat_messages")
-      .update({ message: text, updated_at: new Date().toISOString() })
+      .update({ message: text, note_url: url, updated_at: new Date().toISOString() })
       .eq("id", id);
 
     if (error) {
       setAppError("บันทึกไม่สำเร็จ: " + error.message);
     } else {
-      setMsgs(msgs().map((m) => m.id === id ? { ...m, message: text } : m));
+      setMsgs(msgs().map((m) => m.id === id ? { ...m, message: text, note_url: url } : m));
       broadcastTyping(null);
       setEditingId(null);
       setEditText("");
+      setEditUrl("");
     }
     setSaving(false);
+  }
+
+  function autoResizeTextarea(el: HTMLTextAreaElement) {
+    el.style.height = "auto";
+    el.style.height = `${el.scrollHeight}px`;
   }
 
   // ── Group messages into pairs ──────────────────────────────
@@ -392,6 +404,19 @@ export default function MarryMeMary() {
             {msg.message || "ยังไม่มีข้อความ"}
           </p>
 
+          <Show when={msg.note_url && msg.note_url.trim().length > 0}>
+            <a
+              href={msg.note_url}
+              target="_blank"
+              rel="noreferrer"
+              class="inline-flex items-center gap-1 text-xs mt-2"
+              style={{ color: nameColor }}
+              title="เปิดลิงก์แนบ"
+            >
+              🔗 เปิดลิงก์แนบ
+            </a>
+          </Show>
+
           {/* Typing indicator — shown to other clients when someone edits */}
           <Show when={someoneTyping()}>
             <div class="flex items-center gap-1 mt-2" style={{ color: nameColor }}>
@@ -432,12 +457,25 @@ export default function MarryMeMary() {
               background: "white",
               color: "#333",
               "min-height": "80px",
+              overflow: "hidden",
             }}
-            rows={4}
+            rows={3}
             maxLength={5000}
             placeholder="พิมพ์ข้อความ... (รองรับบรรทัดใหม่ด้วย Enter)"
             value={editText()}
-            onInput={(e) => setEditText(e.currentTarget.value)}
+            onInput={(e) => {
+              setEditText(e.currentTarget.value);
+              autoResizeTextarea(e.currentTarget);
+            }}
+            onFocus={(e) => autoResizeTextarea(e.currentTarget)}
+          />
+          <input
+            type="url"
+            class="w-full rounded-xl border-2 px-3 py-2 text-xs outline-none mt-2"
+            style={{ "border-color": borderAccent }}
+            placeholder="วาง URL โน๊ต/อ้างอิง (ถ้ามี)"
+            value={editUrl()}
+            onInput={(e) => setEditUrl(e.currentTarget.value)}
           />
           <div class="flex items-center gap-2 mt-2">
             <button
