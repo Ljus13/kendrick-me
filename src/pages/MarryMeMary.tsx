@@ -4,7 +4,8 @@
 // Standalone wedding-themed chat journal — public, no auth
 // ============================================================
 
-import { createSignal, For, Show, onMount } from "solid-js";
+import { createSignal, For, Show, onMount, onCleanup } from "solid-js";
+import type { RealtimeChannel } from "@supabase/supabase-js";
 import { supabase } from "../lib/supabase";
 
 // ╔══════════════════════════════════════════════════════════╗
@@ -66,6 +67,19 @@ export default function MarryMeMary() {
   const [saving, setSaving] = createSignal(false);
   const [appError, setAppError] = createSignal<string | null>(null);
 
+  // ── Realtime ───────────────────────────────────────────────
+  // Unique ID for this browser tab — used to ignore own broadcast events
+  const clientId = crypto.randomUUID();
+  let rtChannel: RealtimeChannel | null = null;
+  const typingTimers = new Map<string, ReturnType<typeof setTimeout>>();
+  // Map<senderId, msgId> — which message each remote client is typing in
+  const [typingMap, setTypingMap] = createSignal<Map<string, string>>(new Map());
+
+  onCleanup(() => {
+    if (rtChannel) supabase.removeChannel(rtChannel);
+    typingTimers.forEach((t) => clearTimeout(t));
+  });
+
   // ── Avatar URL state (persisted in Supabase wedding_avatars) ───
   const [leftAvatar, setLeftAvatar] = createSignal<string>(LEFT_AVATAR_DEFAULT);
   const [rightAvatar, setRightAvatar] = createSignal<string>(RIGHT_AVATAR_DEFAULT);
@@ -124,6 +138,74 @@ export default function MarryMeMary() {
     setAvatarSaving(false);
   }
 
+  // ── Setup realtime channel for a mission ──────────────────
+  function setupRealtime(mid: number) {
+    // Tear down previous channel
+    if (rtChannel) supabase.removeChannel(rtChannel);
+    setTypingMap(new Map());
+    typingTimers.forEach((t) => clearTimeout(t));
+    typingTimers.clear();
+
+    rtChannel = supabase
+      .channel(`mmm-mission-${mid}`)
+      // ── Postgres Changes ────────────────────────────────
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "wedding_chat_messages", filter: `mission_id=eq.${mid}` },
+        (payload) => {
+          const newMsg = payload.new as ChatMsg;
+          setMsgs((prev) => (prev.some((m) => m.id === newMsg.id) ? prev : [...prev, newMsg]));
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "wedding_chat_messages", filter: `mission_id=eq.${mid}` },
+        (payload) => {
+          const updated = payload.new as ChatMsg;
+          setMsgs((prev) => prev.map((m) => (m.id === updated.id ? updated : m)));
+        }
+      )
+      .on(
+        "postgres_changes",
+        // DELETE: no filter — PK only available, filter client-side
+        { event: "DELETE", schema: "public", table: "wedding_chat_messages" },
+        (payload) => {
+          const old = payload.old as { id: string };
+          setMsgs((prev) => prev.filter((m) => m.id !== old.id));
+        }
+      )
+      // ── Broadcast: typing indicator ──────────────────────
+      .on("broadcast", { event: "typing" }, (payload) => {
+        const { senderId, msgId } = payload.payload as { senderId: string; msgId: string | null };
+        if (senderId === clientId) return; // ignore own echoes
+        setTypingMap((prev) => {
+          const next = new Map(prev);
+          if (msgId) next.set(senderId, msgId);
+          else next.delete(senderId);
+          return next;
+        });
+        // Auto-expire typing state after 6 s in case of disconnect
+        const existing = typingTimers.get(senderId);
+        if (existing) clearTimeout(existing);
+        if (msgId) {
+          typingTimers.set(
+            senderId,
+            setTimeout(() => {
+              setTypingMap((prev) => { const next = new Map(prev); next.delete(senderId); return next; });
+              typingTimers.delete(senderId);
+            }, 6000)
+          );
+        } else {
+          typingTimers.delete(senderId);
+        }
+      })
+      .subscribe();
+  }
+
+  function broadcastTyping(msgId: string | null) {
+    rtChannel?.send({ type: "broadcast", event: "typing", payload: { senderId: clientId, msgId } });
+  }
+
   // Inject Google Fonts + load avatars once
   onMount(() => {
     if (!document.querySelector("#mmm-fonts")) {
@@ -140,6 +222,7 @@ export default function MarryMeMary() {
   async function fetchMsgs(mid: number) {
     setLoading(true);
     setAppError(null);
+    setupRealtime(mid); // subscribe before fetch — avoid missing events
     const { data, error } = await supabase
       .from("wedding_chat_messages")
       .select("*")
@@ -199,9 +282,11 @@ export default function MarryMeMary() {
   function startEdit(msg: ChatMsg) {
     setEditingId(msg.id);
     setEditText(msg.message);
+    broadcastTyping(msg.id);
   }
 
   function cancelEdit() {
+    broadcastTyping(null);
     setEditingId(null);
     setEditText("");
   }
@@ -221,6 +306,7 @@ export default function MarryMeMary() {
       setAppError("บันทึกไม่สำเร็จ: " + error.message);
     } else {
       setMsgs(msgs().map((m) => m.id === id ? { ...m, message: text } : m));
+      broadcastTyping(null);
       setEditingId(null);
       setEditText("");
     }
@@ -278,6 +364,8 @@ export default function MarryMeMary() {
     const textColor   = isLeft ? LEFT_TEXT  : RIGHT_TEXT;
     const borderAccent = isLeft ? "#B8DCEF"  : "#F0B8D4";
     const displayName = isLeft ? LEFT_NAME  : RIGHT_NAME;
+    // True when a remote client is editing this exact slot
+    const someoneTyping = () => [...typingMap().values()].includes(msg.id);
 
     return (
       <div
@@ -301,6 +389,14 @@ export default function MarryMeMary() {
           >
             {msg.message || "ยังไม่มีข้อความ"}
           </p>
+
+          {/* Typing indicator — shown to other clients when someone edits */}
+          <Show when={someoneTyping()}>
+            <div class="flex items-center gap-1 mt-2" style={{ color: nameColor }}>
+              <span class="mmm-dot" /><span class="mmm-dot" /><span class="mmm-dot" />
+              <span class="text-xs ml-1.5 font-medium" style={{ opacity: "0.75" }}>กำลังพิมพ์</span>
+            </div>
+          </Show>
 
           {/* Hover action buttons */}
           <div
@@ -406,6 +502,20 @@ export default function MarryMeMary() {
           box-shadow: 0 6px 22px rgba(232,123,163,0.25);
           border-color: #E87BA3 !important;
           color: #E87BA3 !important;
+        }
+
+        /* Typing indicator dots */
+        .mmm-dot {
+          width: 5px; height: 5px; border-radius: 50%;
+          background: currentColor; display: inline-block;
+          animation: mmm-typing-dot 1.4s ease-in-out infinite both;
+        }
+        .mmm-dot:nth-child(1) { animation-delay: 0s; }
+        .mmm-dot:nth-child(2) { animation-delay: 0.2s; }
+        .mmm-dot:nth-child(3) { animation-delay: 0.4s; }
+        @keyframes mmm-typing-dot {
+          0%, 60%, 100% { transform: translateY(0); opacity: 0.35; }
+          30% { transform: translateY(-5px); opacity: 1; }
         }
 
         .mmm-avatar-wrap { position: relative; display: inline-flex; cursor: pointer; }
