@@ -19,6 +19,9 @@ const LEFT_COLOR        = "#4BA3C3";           // avatar circle & name text
 const LEFT_BG           = "#E8F4FD";           // message bubble background
 const LEFT_TEXT         = "#1A6A8A";           // message body text colour
 const LEFT_AVATAR_DEFAULT  = "";               // default avatar URL (empty = initials)
+const AVATAR_POS_X_DEFAULT = 50;               // default avatar position X (percent)
+const AVATAR_POS_Y_DEFAULT = 50;               // default avatar position Y (percent)
+const AVATAR_SCALE_DEFAULT = 100;              // default avatar scale (percent)
 
 const RIGHT_NAME        = "Cecilia Rosa";       // pink person's display name
 const RIGHT_COLOR       = "#E87BA3";           // avatar circle & name text
@@ -87,23 +90,47 @@ export default function MarryMeMary() {
   // ── Avatar URL state (persisted in Supabase wedding_avatars) ───
   const [leftAvatar, setLeftAvatar] = createSignal<string>(LEFT_AVATAR_DEFAULT);
   const [rightAvatar, setRightAvatar] = createSignal<string>(RIGHT_AVATAR_DEFAULT);
+  const [leftAvatarPosX, setLeftAvatarPosX] = createSignal<number>(AVATAR_POS_X_DEFAULT);
+  const [leftAvatarPosY, setLeftAvatarPosY] = createSignal<number>(AVATAR_POS_Y_DEFAULT);
+  const [leftAvatarScale, setLeftAvatarScale] = createSignal<number>(AVATAR_SCALE_DEFAULT);
+  const [rightAvatarPosX, setRightAvatarPosX] = createSignal<number>(AVATAR_POS_X_DEFAULT);
+  const [rightAvatarPosY, setRightAvatarPosY] = createSignal<number>(AVATAR_POS_Y_DEFAULT);
+  const [rightAvatarScale, setRightAvatarScale] = createSignal<number>(AVATAR_SCALE_DEFAULT);
   const [avatarSaving, setAvatarSaving] = createSignal(false);
   // editing avatar: null = none, 'left' | 'right' = open
   const [editingAvatar, setEditingAvatar] = createSignal<"left" | "right" | null>(null);
   const [avatarInput, setAvatarInput] = createSignal("");
+  const [avatarPosXInput, setAvatarPosXInput] = createSignal<number>(AVATAR_POS_X_DEFAULT);
+  const [avatarPosYInput, setAvatarPosYInput] = createSignal<number>(AVATAR_POS_Y_DEFAULT);
+  const [avatarScaleInput, setAvatarScaleInput] = createSignal<number>(AVATAR_SCALE_DEFAULT);
 
   async function fetchAvatars() {
-    const { data } = await supabase.from("wedding_avatars").select("side, avatar_url");
+    const { data } = await supabase
+      .from("wedding_avatars")
+      .select("side, avatar_url, avatar_pos_x, avatar_pos_y, avatar_scale");
     if (data) {
       for (const row of data) {
-        if (row.side === "left")  setLeftAvatar(row.avatar_url ?? "");
-        if (row.side === "right") setRightAvatar(row.avatar_url ?? "");
+        if (row.side === "left") {
+          setLeftAvatar(row.avatar_url ?? "");
+          setLeftAvatarPosX(row.avatar_pos_x ?? AVATAR_POS_X_DEFAULT);
+          setLeftAvatarPosY(row.avatar_pos_y ?? AVATAR_POS_Y_DEFAULT);
+          setLeftAvatarScale(row.avatar_scale ?? AVATAR_SCALE_DEFAULT);
+        }
+        if (row.side === "right") {
+          setRightAvatar(row.avatar_url ?? "");
+          setRightAvatarPosX(row.avatar_pos_x ?? AVATAR_POS_X_DEFAULT);
+          setRightAvatarPosY(row.avatar_pos_y ?? AVATAR_POS_Y_DEFAULT);
+          setRightAvatarScale(row.avatar_scale ?? AVATAR_SCALE_DEFAULT);
+        }
       }
     }
   }
 
   function openAvatarEdit(side: "left" | "right") {
     setAvatarInput(side === "left" ? leftAvatar() : rightAvatar());
+    setAvatarPosXInput(side === "left" ? leftAvatarPosX() : rightAvatarPosX());
+    setAvatarPosYInput(side === "left" ? leftAvatarPosY() : rightAvatarPosY());
+    setAvatarScaleInput(side === "left" ? leftAvatarScale() : rightAvatarScale());
     setEditingAvatar(side);
   }
   async function saveAvatar() {
@@ -113,11 +140,26 @@ export default function MarryMeMary() {
     setAvatarSaving(true);
     const { error } = await supabase
       .from("wedding_avatars")
-      .update({ avatar_url: url, updated_at: new Date().toISOString() })
+      .update({
+        avatar_url: url,
+        avatar_pos_x: avatarPosXInput(),
+        avatar_pos_y: avatarPosYInput(),
+        avatar_scale: avatarScaleInput(),
+        updated_at: new Date().toISOString(),
+      })
       .eq("side", side);
     if (!error) {
-      if (side === "left") setLeftAvatar(url);
-      else setRightAvatar(url);
+      if (side === "left") {
+        setLeftAvatar(url);
+        setLeftAvatarPosX(avatarPosXInput());
+        setLeftAvatarPosY(avatarPosYInput());
+        setLeftAvatarScale(avatarScaleInput());
+      } else {
+        setRightAvatar(url);
+        setRightAvatarPosX(avatarPosXInput());
+        setRightAvatarPosY(avatarPosYInput());
+        setRightAvatarScale(avatarScaleInput());
+      }
       setEditingAvatar(null);
       setAvatarInput("");
     } else {
@@ -129,11 +171,26 @@ export default function MarryMeMary() {
     setAvatarSaving(true);
     const { error } = await supabase
       .from("wedding_avatars")
-      .update({ avatar_url: "", updated_at: new Date().toISOString() })
+      .update({
+        avatar_url: "",
+        avatar_pos_x: AVATAR_POS_X_DEFAULT,
+        avatar_pos_y: AVATAR_POS_Y_DEFAULT,
+        avatar_scale: AVATAR_SCALE_DEFAULT,
+        updated_at: new Date().toISOString(),
+      })
       .eq("side", side);
     if (!error) {
-      if (side === "left") setLeftAvatar("");
-      else setRightAvatar("");
+      if (side === "left") {
+        setLeftAvatar("");
+        setLeftAvatarPosX(AVATAR_POS_X_DEFAULT);
+        setLeftAvatarPosY(AVATAR_POS_Y_DEFAULT);
+        setLeftAvatarScale(AVATAR_SCALE_DEFAULT);
+      } else {
+        setRightAvatar("");
+        setRightAvatarPosX(AVATAR_POS_X_DEFAULT);
+        setRightAvatarPosY(AVATAR_POS_Y_DEFAULT);
+        setRightAvatarScale(AVATAR_SCALE_DEFAULT);
+      }
       setEditingAvatar(null);
       setAvatarInput("");
     } else {
@@ -344,6 +401,9 @@ export default function MarryMeMary() {
     const color = props.side === "left" ? LEFT_COLOR : RIGHT_COLOR;
     const name  = props.side === "left" ? LEFT_NAME  : RIGHT_NAME;
     const url   = () => props.side === "left" ? leftAvatar() : rightAvatar();
+    const posX  = () => props.side === "left" ? leftAvatarPosX() : rightAvatarPosX();
+    const posY  = () => props.side === "left" ? leftAvatarPosY() : rightAvatarPosY();
+    const scale = () => props.side === "left" ? leftAvatarScale() : rightAvatarScale();
     return (
       <Show
         when={url()}
@@ -357,14 +417,23 @@ export default function MarryMeMary() {
           </div>
         }
       >
-        <img
-          src={url()}
-          alt={name}
-          title={name}
-          class="w-11 h-11 rounded-full flex-shrink-0 object-cover shadow-md select-none"
+        <div
+          class="w-11 h-11 rounded-full flex-shrink-0 shadow-md select-none overflow-hidden"
           style={{ border: `2px solid ${color}` }}
-          onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
-        />
+          title={name}
+        >
+          <img
+            src={url()}
+            alt={name}
+            class="w-full h-full object-cover"
+            style={{
+              "object-position": `${posX()}% ${posY()}%`,
+              transform: `scale(${scale() / 100})`,
+              "transform-origin": "center",
+            }}
+            onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
+          />
+        </div>
       </Show>
     );
   };
@@ -594,13 +663,22 @@ export default function MarryMeMary() {
             {/* Preview */}
             <Show when={avatarInput().trim()}>
               <div class="flex justify-center mb-4">
-                <img
-                  src={avatarInput().trim()}
-                  alt="preview"
-                  class="w-20 h-20 rounded-full object-cover shadow-md"
+                <div
+                  class="w-20 h-20 rounded-full shadow-md overflow-hidden"
                   style={{ border: `3px solid ${editingAvatar() === "left" ? LEFT_COLOR : RIGHT_COLOR}` }}
-                  onError={(e) => { (e.currentTarget as HTMLImageElement).style.opacity = "0.3"; }}
-                />
+                >
+                  <img
+                    src={avatarInput().trim()}
+                    alt="preview"
+                    class="w-full h-full object-cover"
+                    style={{
+                      "object-position": `${avatarPosXInput()}% ${avatarPosYInput()}%`,
+                      transform: `scale(${avatarScaleInput() / 100})`,
+                      "transform-origin": "center",
+                    }}
+                    onError={(e) => { (e.currentTarget as HTMLImageElement).style.opacity = "0.3"; }}
+                  />
+                </div>
               </div>
             </Show>
 
@@ -612,6 +690,44 @@ export default function MarryMeMary() {
               value={avatarInput()}
               onInput={(e) => setAvatarInput(e.currentTarget.value)}
             />
+
+            <div class="space-y-3 mb-4">
+              <label class="block text-xs text-gray-500">
+                ปรับตำแหน่ง X: {avatarPosXInput()}%
+              </label>
+              <input
+                type="range"
+                min="0"
+                max="100"
+                value={avatarPosXInput()}
+                onInput={(e) => setAvatarPosXInput(parseInt(e.currentTarget.value))}
+                class="w-full"
+              />
+
+              <label class="block text-xs text-gray-500">
+                ปรับตำแหน่ง Y: {avatarPosYInput()}%
+              </label>
+              <input
+                type="range"
+                min="0"
+                max="100"
+                value={avatarPosYInput()}
+                onInput={(e) => setAvatarPosYInput(parseInt(e.currentTarget.value))}
+                class="w-full"
+              />
+
+              <label class="block text-xs text-gray-500">
+                ขนาดรูป: {avatarScaleInput()}%
+              </label>
+              <input
+                type="range"
+                min="50"
+                max="200"
+                value={avatarScaleInput()}
+                onInput={(e) => setAvatarScaleInput(parseInt(e.currentTarget.value))}
+                class="w-full"
+              />
+            </div>
 
             <div class="flex gap-2">
               <button
@@ -683,8 +799,18 @@ export default function MarryMeMary() {
                   </div>
                 }
               >
-                <img src={leftAvatar()} alt={LEFT_NAME} class="w-8 h-8 rounded-full object-cover"
-                  style={{ border: `2px solid ${LEFT_COLOR}` }} />
+                <div class="w-8 h-8 rounded-full overflow-hidden" style={{ border: `2px solid ${LEFT_COLOR}` }}>
+                  <img
+                    src={leftAvatar()}
+                    alt={LEFT_NAME}
+                    class="w-full h-full object-cover"
+                    style={{
+                      "object-position": `${leftAvatarPosX()}% ${leftAvatarPosY()}%`,
+                      transform: `scale(${leftAvatarScale() / 100})`,
+                      "transform-origin": "center",
+                    }}
+                  />
+                </div>
               </Show>
               <span class="mmm-avatar-edit-badge">✏️</span>
             </div>
@@ -700,8 +826,18 @@ export default function MarryMeMary() {
                   </div>
                 }
               >
-                <img src={rightAvatar()} alt={RIGHT_NAME} class="w-8 h-8 rounded-full object-cover"
-                  style={{ border: `2px solid ${RIGHT_COLOR}` }} />
+                <div class="w-8 h-8 rounded-full overflow-hidden" style={{ border: `2px solid ${RIGHT_COLOR}` }}>
+                  <img
+                    src={rightAvatar()}
+                    alt={RIGHT_NAME}
+                    class="w-full h-full object-cover"
+                    style={{
+                      "object-position": `${rightAvatarPosX()}% ${rightAvatarPosY()}%`,
+                      transform: `scale(${rightAvatarScale() / 100})`,
+                      "transform-origin": "center",
+                    }}
+                  />
+                </div>
               </Show>
               <span class="mmm-avatar-edit-badge">✏️</span>
             </div>
