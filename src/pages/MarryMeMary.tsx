@@ -1,0 +1,450 @@
+// ============================================================
+// Marry Me, Mary! — Wedding Chat Timeline
+// Route: /marry
+// Standalone wedding-themed chat journal — public, no auth
+// ============================================================
+
+import { createSignal, For, Show, onMount } from "solid-js";
+import { supabase } from "../lib/supabase";
+
+// ╔══════════════════════════════════════════════════════════╗
+// ║  CONFIGURATION — ✏️ Edit once, applies everywhere        ║
+// ╠══════════════════════════════════════════════════════════╣
+// ║  Change names & colours here — all UI updates auto       ║
+// ╚══════════════════════════════════════════════════════════╝
+const LEFT_NAME   = "Kendrick";      // blue person's display name
+const LEFT_COLOR  = "#4BA3C3";       // avatar circle & name text
+const LEFT_BG     = "#E8F4FD";       // message bubble background
+const LEFT_TEXT   = "#1A6A8A";       // message body text colour
+
+const RIGHT_NAME  = "Mary";          // pink person's display name
+const RIGHT_COLOR = "#E87BA3";       // avatar circle & name text
+const RIGHT_BG    = "#FDEEF6";       // message bubble background
+const RIGHT_TEXT  = "#A33360";       // message body text colour
+// ╚══════════════════════════════════════════════════════════╝
+
+const MISSIONS = [
+  { id: 1, label: "First Move" },
+  { id: 2, label: "First Meal" },
+  { id: 3, label: "Outside Day" },
+  { id: 4, label: "Home Refill" },
+  { id: 5, label: "Date Night : ออกไปทำ" },
+] as const;
+
+// ── Types ─────────────────────────────────────────────────────
+interface ChatMsg {
+  id: string;
+  mission_id: number;
+  pair_index: number;
+  side: "left" | "right";
+  message: string;
+  created_at: string;
+  updated_at: string;
+}
+interface ChatPair {
+  index: number;
+  left?: ChatMsg;
+  right?: ChatMsg;
+}
+
+// ── Helper: first two initials ─────────────────────────────────
+function initials(name: string): string {
+  return name.trim().split(/\s+/).map((w) => w[0] ?? "").join("").slice(0, 2).toUpperCase();
+}
+
+// ── Component ─────────────────────────────────────────────────
+export default function MarryMeMary() {
+  const [missionId, setMissionId] = createSignal<number | null>(null);
+  const [msgs, setMsgs] = createSignal<ChatMsg[]>([]);
+  const [loading, setLoading] = createSignal(false);
+  const [editingId, setEditingId] = createSignal<string | null>(null);
+  const [editText, setEditText] = createSignal("");
+  const [saving, setSaving] = createSignal(false);
+  const [appError, setAppError] = createSignal<string | null>(null);
+
+  // Inject Google Fonts once
+  onMount(() => {
+    if (!document.querySelector("#mmm-fonts")) {
+      const link = document.createElement("link");
+      link.id = "mmm-fonts";
+      link.rel = "stylesheet";
+      link.href = "https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&family=Nunito:wght@400;500;600;700&display=swap";
+      document.head.appendChild(link);
+    }
+  });
+
+  // ── Data fetching ──────────────────────────────────────────
+  async function fetchMsgs(mid: number) {
+    setLoading(true);
+    setAppError(null);
+    const { data, error } = await supabase
+      .from("wedding_chat_messages")
+      .select("*")
+      .eq("mission_id", mid)
+      .order("pair_index", { ascending: true })
+      .order("side", { ascending: true });   // 'left' < 'right' alphabetically
+
+    if (error) {
+      setAppError("โหลดข้อมูลไม่สำเร็จ: " + error.message);
+    } else {
+      setMsgs((data ?? []) as ChatMsg[]);
+    }
+    setLoading(false);
+  }
+
+  // ── Add pair (left + right) ────────────────────────────────
+  async function addPair() {
+    const mid = missionId();
+    if (mid === null) return;
+
+    const current = msgs();
+    const maxIdx = current.length > 0
+      ? Math.max(...current.map((m) => m.pair_index))
+      : -1;
+    const nextIdx = maxIdx + 1;
+
+    const { data, error } = await supabase
+      .from("wedding_chat_messages")
+      .insert([
+        { mission_id: mid, pair_index: nextIdx, side: "left",  message: "" },
+        { mission_id: mid, pair_index: nextIdx, side: "right", message: "" },
+      ])
+      .select();
+
+    if (error) {
+      setAppError("เพิ่มคู่แชทไม่สำเร็จ: " + error.message);
+    } else if (data) {
+      setMsgs([...current, ...(data as ChatMsg[])]);
+    }
+  }
+
+  // ── Delete single message ──────────────────────────────────
+  async function deleteMsg(id: string) {
+    const { error } = await supabase
+      .from("wedding_chat_messages")
+      .delete()
+      .eq("id", id);
+
+    if (error) {
+      setAppError("ลบไม่สำเร็จ: " + error.message);
+    } else {
+      setMsgs(msgs().filter((m) => m.id !== id));
+    }
+  }
+
+  // ── Edit helpers ───────────────────────────────────────────
+  function startEdit(msg: ChatMsg) {
+    setEditingId(msg.id);
+    setEditText(msg.message);
+  }
+
+  function cancelEdit() {
+    setEditingId(null);
+    setEditText("");
+  }
+
+  async function saveEdit(id: string) {
+    const text = editText().trim();
+    if (text.length === 0) { setAppError("กรุณากรอกข้อความก่อนบันทึก"); return; }
+    if (text.length > 5000) { setAppError("ข้อความยาวเกิน 5,000 ตัวอักษร"); return; }
+
+    setSaving(true);
+    const { error } = await supabase
+      .from("wedding_chat_messages")
+      .update({ message: text, updated_at: new Date().toISOString() })
+      .eq("id", id);
+
+    if (error) {
+      setAppError("บันทึกไม่สำเร็จ: " + error.message);
+    } else {
+      setMsgs(msgs().map((m) => m.id === id ? { ...m, message: text } : m));
+      setEditingId(null);
+      setEditText("");
+    }
+    setSaving(false);
+  }
+
+  // ── Group messages into pairs ──────────────────────────────
+  const pairs = (): ChatPair[] => {
+    const map = new Map<number, ChatPair>();
+    for (const m of msgs()) {
+      if (!map.has(m.pair_index)) map.set(m.pair_index, { index: m.pair_index });
+      const p = map.get(m.pair_index)!;
+      if (m.side === "left") p.left = m;
+      else p.right = m;
+    }
+    return [...map.values()].sort((a, b) => a.index - b.index);
+  };
+
+  // ── Avatar component (left or right) ──────────────────────
+  const Avatar = (props: { side: "left" | "right" }) => {
+    const color = props.side === "left" ? LEFT_COLOR : RIGHT_COLOR;
+    const name  = props.side === "left" ? LEFT_NAME  : RIGHT_NAME;
+    return (
+      <div
+        class="w-11 h-11 rounded-full flex-shrink-0 flex items-center justify-center text-white text-xs font-bold shadow-md select-none"
+        style={{ background: color }}
+        title={name}
+      >
+        {initials(name)}
+      </div>
+    );
+  };
+
+  // ── Bubble component ───────────────────────────────────────
+  const Bubble = (props: { msg: ChatMsg }) => {
+    const { msg } = props;
+    const isLeft  = msg.side === "left";
+    const bubbleBg    = isLeft ? LEFT_BG    : RIGHT_BG;
+    const nameColor   = isLeft ? LEFT_COLOR : RIGHT_COLOR;
+    const textColor   = isLeft ? LEFT_TEXT  : RIGHT_TEXT;
+    const borderAccent = isLeft ? "#B8DCEF"  : "#F0B8D4";
+    const displayName = isLeft ? LEFT_NAME  : RIGHT_NAME;
+
+    return (
+      <div
+        class="relative flex-1 rounded-2xl px-4 pt-3 pb-3 shadow-sm group"
+        style={{
+          background: bubbleBg,
+          "border-left": isLeft ? `3px solid ${nameColor}` : "none",
+          "border-right": !isLeft ? `3px solid ${nameColor}` : "none",
+        }}
+      >
+        {/* Name */}
+        <div class="font-bold text-sm mb-1" style={{ color: nameColor, "font-family": "'Cormorant Garamond', serif", "font-size": "0.95rem" }}>
+          {displayName}:
+        </div>
+
+        {/* View mode */}
+        <Show when={editingId() !== msg.id}>
+          <p
+            class="text-sm leading-relaxed whitespace-pre-wrap break-words"
+            style={{ color: msg.message ? textColor : "#C8C8C8", "font-style": msg.message ? "normal" : "italic" }}
+          >
+            {msg.message || "ยังไม่มีข้อความ"}
+          </p>
+
+          {/* Hover action buttons */}
+          <div
+            class="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200"
+          >
+            <button
+              onClick={() => startEdit(msg)}
+              class="w-7 h-7 rounded-full bg-white shadow-sm text-xs flex items-center justify-center hover:bg-sky-50 transition-colors"
+              style={{ border: `1px solid ${borderAccent}` }}
+              title="แก้ไข"
+            >
+              ✏️
+            </button>
+            <button
+              onClick={() => {
+                if (window.confirm(`ลบข้อความของ ${displayName}?`)) deleteMsg(msg.id);
+              }}
+              class="w-7 h-7 rounded-full bg-white shadow-sm text-xs flex items-center justify-center hover:bg-red-50 transition-colors"
+              style={{ border: `1px solid #FFBBBB` }}
+              title="ลบ"
+            >
+              🗑️
+            </button>
+          </div>
+        </Show>
+
+        {/* Edit mode */}
+        <Show when={editingId() === msg.id}>
+          <textarea
+            class="w-full rounded-xl p-2.5 text-sm resize-none outline-none transition-colors"
+            style={{
+              border: `2px solid ${borderAccent}`,
+              background: "white",
+              color: "#333",
+              "min-height": "80px",
+            }}
+            rows={4}
+            maxLength={5000}
+            placeholder="พิมพ์ข้อความ... (รองรับบรรทัดใหม่ด้วย Enter)"
+            value={editText()}
+            onInput={(e) => setEditText(e.currentTarget.value)}
+          />
+          <div class="flex items-center gap-2 mt-2">
+            <button
+              onClick={() => saveEdit(msg.id)}
+              disabled={saving()}
+              class="text-xs px-4 py-1.5 rounded-full font-semibold text-white transition-opacity disabled:opacity-50"
+              style={{ background: nameColor }}
+            >
+              {saving() ? "กำลังบันทึก..." : "บันทึก"}
+            </button>
+            <button
+              onClick={cancelEdit}
+              class="text-xs px-4 py-1.5 rounded-full font-semibold bg-gray-100 text-gray-500 hover:bg-gray-200 transition-colors"
+            >
+              ยกเลิก
+            </button>
+            <span class="ml-auto text-xs text-gray-300">
+              {editText().length} / 5000
+            </span>
+          </div>
+        </Show>
+      </div>
+    );
+  };
+
+  // ── Render ─────────────────────────────────────────────────
+  return (
+    <div
+      class="min-h-screen"
+      style={{
+        background: "linear-gradient(160deg, #FFF5F8 0%, #FAFCFF 45%, #F0F8FF 100%)",
+        "font-family": "'Nunito', 'Kanit', sans-serif",
+      }}
+    >
+
+      {/* ── Page-scoped styles ─────────────────────────────── */}
+      <style textContent={`
+        .mmm-select {
+          -webkit-appearance: none;
+          appearance: none;
+          background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24' fill='%234BA3C3'%3E%3Cpath d='M7 10l5 5 5-5z'/%3E%3C/svg%3E");
+          background-repeat: no-repeat;
+          background-position: right 14px center;
+          padding-right: 42px;
+        }
+        .mmm-select:focus { outline: none; box-shadow: 0 0 0 3px rgba(75,163,195,0.25); }
+
+        .mmm-pair {
+          animation: mmm-fadein 0.35s ease both;
+        }
+        @keyframes mmm-fadein {
+          from { opacity: 0; transform: translateY(10px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+
+        .mmm-add-btn {
+          transition: all 0.25s ease;
+          box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+        }
+        .mmm-add-btn:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 6px 22px rgba(232,123,163,0.25);
+          border-color: #E87BA3 !important;
+          color: #E87BA3 !important;
+        }
+      `} />
+
+      {/* ── Header ─────────────────────────────────────────── */}
+      <header
+        class="px-5 py-4 flex items-center justify-between gap-3 rounded-b-3xl shadow-lg flex-wrap"
+        style={{ background: "linear-gradient(135deg, #2A2A2A 0%, #1A2030 100%)" }}
+      >
+        <h1
+          class="text-white font-bold text-lg sm:text-xl tracking-wide"
+          style={{ "font-family": "'Cormorant Garamond', serif", "font-size": "clamp(1.1rem, 4vw, 1.4rem)" }}
+        >
+          💍 Marry Me, Mary!
+        </h1>
+
+        <select
+          class="mmm-select bg-sky-100 text-sky-700 font-semibold rounded-2xl px-5 py-2.5 text-sm sm:text-base border-2 border-sky-200 cursor-pointer"
+          value={missionId() ?? ""}
+          onChange={(e) => {
+            const v = parseInt(e.currentTarget.value);
+            if (isNaN(v)) {
+              setMissionId(null);
+              setMsgs([]);
+              setEditingId(null);
+            } else {
+              setMissionId(v);
+              setEditingId(null);
+              fetchMsgs(v);
+            }
+          }}
+        >
+          <option value="">--เลือกภารกิจ--</option>
+          <For each={MISSIONS as unknown as Array<{ id: number; label: string }>}>
+            {(m) => <option value={m.id}>{m.label}</option>}
+          </For>
+        </select>
+      </header>
+
+      {/* ── Error banner ───────────────────────────────────── */}
+      <Show when={appError()}>
+        <div class="max-w-2xl mx-auto mt-3 px-4">
+          <div class="bg-red-50 border border-red-200 text-red-600 rounded-xl px-4 py-2 text-sm flex items-center justify-between">
+            <span>⚠️ {appError()}</span>
+            <button onClick={() => setAppError(null)} class="ml-3 font-bold text-lg leading-none hover:text-red-800">×</button>
+          </div>
+        </div>
+      </Show>
+
+      {/* ── Empty state (no mission selected) ─────────────── */}
+      <Show when={missionId() === null}>
+        <div class="flex flex-col items-center justify-center min-h-[65vh] text-gray-300 select-none">
+          <div class="text-7xl mb-4 opacity-60">💌</div>
+          <p class="text-base font-medium" style={{ color: "#C8ADBA" }}>เลือกภารกิจเพื่อเริ่มบันทึกความทรงจำ</p>
+        </div>
+      </Show>
+
+      {/* ── Chat area ──────────────────────────────────────── */}
+      <Show when={missionId() !== null}>
+        <main class="max-w-2xl mx-auto px-4 py-6">
+
+          {/* Loading */}
+          <Show when={loading()}>
+            <div class="text-center py-16 text-gray-300">
+              <div class="text-4xl animate-pulse mb-3">💕</div>
+              <p class="text-sm">กำลังโหลด...</p>
+            </div>
+          </Show>
+
+          {/* Empty mission */}
+          <Show when={!loading() && pairs().length === 0}>
+            <div class="text-center py-14 text-gray-300">
+              <div class="text-4xl mb-3">📝</div>
+              <p class="text-sm">ยังไม่มีข้อความสำหรับภารกิจนี้</p>
+              <p class="text-xs mt-1 opacity-60">กด + ด้านล่างเพื่อเพิ่มคู่แชทแรก</p>
+            </div>
+          </Show>
+
+          {/* Pairs */}
+          <div class="space-y-5">
+            <For each={pairs()}>
+              {(pair) => (
+                <div class="mmm-pair space-y-3">
+
+                  {/* Left message (blue) */}
+                  <Show when={pair.left !== undefined}>
+                    <div class="flex items-start gap-3">
+                      <Avatar side="left" />
+                      <Bubble msg={pair.left!} />
+                    </div>
+                  </Show>
+
+                  {/* Right message (pink) */}
+                  <Show when={pair.right !== undefined}>
+                    <div class="flex items-start gap-3 flex-row-reverse">
+                      <Avatar side="right" />
+                      <Bubble msg={pair.right!} />
+                    </div>
+                  </Show>
+
+                </div>
+              )}
+            </For>
+          </div>
+
+          {/* Add pair button */}
+          <div class="flex justify-center pt-8 pb-12">
+            <button
+              onClick={addPair}
+              class="mmm-add-btn bg-white border-2 border-gray-200 text-gray-500 font-semibold px-9 py-3 rounded-full text-sm"
+            >
+              + เพิ่มคู่แชทใหม่
+            </button>
+          </div>
+
+        </main>
+      </Show>
+
+    </div>
+  );
+}
