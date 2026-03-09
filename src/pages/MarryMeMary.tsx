@@ -7,6 +7,7 @@
 import { createSignal, For, Show, onMount, onCleanup } from "solid-js";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import { supabase } from "../lib/supabase";
+import Modal from "../components/ui/Modal";
 
 // ╔══════════════════════════════════════════════════════════╗
 // ║  CONFIGURATION — ✏️ Edit once, applies everywhere        ║
@@ -66,6 +67,7 @@ export default function MarryMeMary() {
   const [editText, setEditText] = createSignal("");
   const [saving, setSaving] = createSignal(false);
   const [appError, setAppError] = createSignal<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = createSignal<{ id: string; displayName: string } | null>(null);
 
   // ── Realtime ───────────────────────────────────────────────
   // Unique ID for this browser tab — used to ignore own broadcast events
@@ -400,7 +402,7 @@ export default function MarryMeMary() {
 
           {/* Hover action buttons */}
           <div
-            class="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200"
+            class="absolute top-2 right-2 z-10 flex gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity duration-200"
           >
             <button
               onClick={() => startEdit(msg)}
@@ -411,9 +413,7 @@ export default function MarryMeMary() {
               ✏️
             </button>
             <button
-              onClick={() => {
-                if (window.confirm(`ลบข้อความของ ${displayName}?`)) deleteMsg(msg.id);
-              }}
+              onClick={() => setDeleteTarget({ id: msg.id, displayName })}
               class="w-7 h-7 rounded-full bg-white shadow-sm text-xs flex items-center justify-center hover:bg-red-50 transition-colors"
               style={{ border: `1px solid #FFBBBB` }}
               title="ลบ"
@@ -601,6 +601,22 @@ export default function MarryMeMary() {
           </div>
         </div>
       </Show>
+
+      {/* ── Delete confirmation modal ───────────────────────── */}
+      <Modal
+        show={deleteTarget() !== null}
+        title="ยืนยันการลบข้อความ"
+        message={deleteTarget() ? `ลบข้อความของ ${deleteTarget()!.displayName}?` : ""}
+        type="confirm"
+        variant="danger"
+        confirmText="ลบ"
+        cancelText="ยกเลิก"
+        onConfirm={() => {
+          const target = deleteTarget();
+          if (target) void deleteMsg(target.id);
+        }}
+        onClose={() => setDeleteTarget(null)}
+      />
 
       {/* ── Header ─────────────────────────────────────────── */}
       <header
